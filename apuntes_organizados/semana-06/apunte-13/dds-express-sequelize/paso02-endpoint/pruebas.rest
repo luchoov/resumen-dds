@@ -1,0 +1,8 @@
+### Obtener la respuesta de la API en la ruta /
+GET http://localhost:3000/
+Accept: text/plain
+
+### Obtener la respuesta del endpoint `/health-check`
+GET http://localhost:3000/health-check
+Accept: application/json
+

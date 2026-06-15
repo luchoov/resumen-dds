@@ -1,0 +1,33 @@
+---
+import Icon from './Icon.astro';
+/**
+ * Callout / nota al margen: tips, advertencias, analogías y puntos de parcial.
+ * Sin emojis: ícono de línea + etiqueta monoespaciada.
+ */
+interface Props {
+  type?: 'info' | 'tip' | 'warn' | 'danger' | 'analogia' | 'parcial';
+  title?: string;
+}
+const { type = 'info', title } = Astro.props;
+
+const presets: Record<string, { icon: string; label: string }> = {
+  info: { icon: 'info', label: 'Nota' },
+  tip: { icon: 'tip', label: 'Tip' },
+  warn: { icon: 'warn', label: 'Cuidado' },
+  danger: { icon: 'danger', label: 'Error frecuente' },
+  analogia: { icon: 'analogia', label: 'Analogía' },
+  parcial: { icon: 'parcial', label: 'Para el parcial' },
+};
+const preset = presets[type] ?? presets.info;
+---
+
+<aside class={`callout ${type}`}>
+  <span class="callout__mark"><Icon name={preset.icon} size={17} stroke={1.7} /></span>
+  <div>
+    <p class="callout__label">{preset.label}</p>
+    {title && <p class="callout__title">{title}</p>}
+  </div>
+  <div class="callout__body">
+    <slot />
+  </div>
+</aside>

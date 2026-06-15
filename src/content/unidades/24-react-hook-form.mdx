@@ -1,0 +1,212 @@
+---
+numero: 24
+titulo: 'React Hook Form'
+subtitulo: 'Formularios más simples, validados y performantes con hooks.'
+bloque: 'React: navegación y datos'
+semana: 'Semana 12'
+color: data
+icon: 'pencil'
+resumen: 'React Hook Form simplifica formularios usando hooks: useForm da register (conectar campos + validar), handleSubmit y formState (errores, estado de envío), reduciendo re-renders y código repetitivo.'
+tags: ['useForm', 'register', 'handleSubmit', 'formState', 'pattern']
+---
+
+## ¿Por qué React Hook Form?
+
+Manejar formularios con `useState` campo por campo es tedioso. **React Hook Form (RHF)** simplifica y **optimiza** la creación de formularios: validación, manejo de errores y **rendimiento** (menos re-renders), todo apoyado en hooks.
+
+<div class="conceptos">
+<article class="concepto"><div class="concepto__t">Validación fácil</div><div class="concepto__d">Reglas propias o con librerías como Yup/Joi.</div></article>
+<article class="concepto"><div class="concepto__t">Performance</div><div class="concepto__d">Minimiza renders innecesarios → más rápido.</div></article>
+<article class="concepto"><div class="concepto__t">Manejo de errores</div><div class="concepto__d">Mensajes de error simples de mostrar y gestionar.</div></article>
+<article class="concepto"><div class="concepto__t">Integrable</div><div class="concepto__d">Con Material-UI, Ant Design, Bootstrap…</div></article>
+</div>
+
+```bash
+npm install react-hook-form
+```
+
+## Los componentes principales
+
+Todo sale del hook **`useForm`**:
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">useForm</div><div class="deflist__d">Hook principal. Inicializa la lógica y devuelve todo lo demás.</div></div>
+<div class="deflist__row"><div class="deflist__t">register</div><div class="deflist__d">Registra un campo y le define reglas de validación. Lo conecta al formulario.</div></div>
+<div class="deflist__row"><div class="deflist__t">handleSubmit</div><div class="deflist__d">Maneja el envío: valida y, si está OK, llama a tu función con los datos.</div></div>
+<div class="deflist__row"><div class="deflist__t">formState</div><div class="deflist__d">Estado del formulario: <code>errors</code>, <code>isValid</code>, <code>isSubmitting</code>…</div></div>
+<div class="deflist__row"><div class="deflist__t">watch</div><div class="deflist__d">Observa el valor de un campo en tiempo real (lógica condicional).</div></div>
+<div class="deflist__row"><div class="deflist__t">reset</div><div class="deflist__d">Restablece los valores y el estado del formulario.</div></div>
+</div>
+
+## Ejemplo básico
+
+```jsx
+import { useForm } from 'react-hook-form';
+
+function MiFormulario() {
+  const { register, handleSubmit, formState: { errors } } = useForm();
+
+  const onSubmit = (data) => {
+    console.log('Datos del formulario:', data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register('name', { required: 'El nombre es requerido' })} />
+      {errors.name && <p>{errors.name.message}</p>}
+
+      <input {...register('email', { required: 'El email es requerido' })} />
+      {errors.email && <p>{errors.email.message}</p>}
+
+      <button type="submit">Enviar</button>
+    </form>
+  );
+}
+```
+
+<Callout type="info" title="¿Qué es ...register?">
+La función `register` devuelve un objeto con todo lo necesario para controlar el campo (`name`, `onChange`, `ref`…). El **spread** `{...register('name')}` lo “esparce” como props del `<input>` automáticamente. Por eso **no** necesitás `value` ni `onChange` a mano.
+</Callout>
+
+<Figura caption="useForm reparte las herramientas; register conecta cada input.">
+<svg viewBox="0 0 560 160" width="560" height="160" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="200" y="15" width="160" height="46" rx="11" fill="var(--surface)" stroke="hsl(var(--c-data))"/>
+  <text x="280" y="42" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">useForm()</text>
+
+  <rect x="20" y="110" width="140" height="40" rx="10" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="90" y="135" font-size="12" fill="var(--text)" text-anchor="middle">register</text>
+  <rect x="210" y="110" width="140" height="40" rx="10" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="280" y="135" font-size="12" fill="var(--text)" text-anchor="middle">handleSubmit</text>
+  <rect x="400" y="110" width="140" height="40" rx="10" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="470" y="135" font-size="12" fill="var(--text)" text-anchor="middle">formState</text>
+
+  <line x1="240" y1="61" x2="100" y2="108" stroke="var(--text-dim)" stroke-width="1.6" marker-end="url(#r24)"/>
+  <line x1="280" y1="61" x2="280" y2="108" stroke="var(--text-dim)" stroke-width="1.6" marker-end="url(#r24)"/>
+  <line x1="320" y1="61" x2="460" y2="108" stroke="var(--text-dim)" stroke-width="1.6" marker-end="url(#r24)"/>
+  <defs><marker id="r24" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+</svg>
+</Figura>
+
+### Qué pasa al enviar
+
+`handleSubmit` primero **valida** todos los campos registrados. Sólo si están OK ejecuta tu `onSubmit`; si no, llena `formState.errors` y muestra los mensajes — sin que el `onSubmit` llegue a correr.
+
+<Figura caption="handleSubmit valida primero: ramifica entre onSubmit (válido) y errors (inválido).">
+<svg viewBox="0 0 600 200" width="600" height="200" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="20" y="80" width="120" height="42" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="80" y="100" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">submit</text>
+  <text x="80" y="115" font-size="10" fill="var(--text-dim)" text-anchor="middle">handleSubmit</text>
+
+  <polygon points="245,101 300,72 355,101 300,130" fill="color-mix(in srgb, hsl(var(--c-data)) 14%, var(--surface))" stroke="hsl(var(--c-data))"/>
+  <text x="300" y="98" font-size="11.5" fill="var(--text)" text-anchor="middle" font-weight="700">¿válido?</text>
+  <text x="300" y="113" font-size="9.5" fill="var(--text-dim)" text-anchor="middle">reglas de register</text>
+
+  <rect x="440" y="22" width="150" height="44" rx="8" fill="color-mix(in srgb, hsl(var(--c-testing)) 14%, var(--surface))" stroke="hsl(var(--c-testing))"/>
+  <text x="515" y="42" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">onSubmit(data)</text>
+  <text x="515" y="57" font-size="10" fill="var(--text-dim)" text-anchor="middle">se ejecuta</text>
+
+  <rect x="440" y="135" width="150" height="44" rx="8" fill="color-mix(in srgb, hsl(var(--c-security)) 14%, var(--surface))" stroke="hsl(var(--c-security))"/>
+  <text x="515" y="155" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">formState.errors</text>
+  <text x="515" y="170" font-size="10" fill="var(--text-dim)" text-anchor="middle">muestra mensajes</text>
+
+  <line x1="140" y1="101" x2="243" y2="101" stroke="var(--text-dim)" stroke-width="1.6" marker-end="url(#f24b)"/>
+  <path d="M355,90 H400 V44 H438" fill="none" stroke="hsl(var(--c-testing))" stroke-width="1.6" marker-end="url(#f24g)"/>
+  <text x="404" y="36" font-size="10" fill="hsl(var(--c-testing))" font-family="JetBrains Mono Variable, monospace">sí</text>
+  <path d="M355,112 H400 V157 H438" fill="none" stroke="hsl(var(--c-security))" stroke-width="1.6" marker-end="url(#f24r)"/>
+  <text x="404" y="150" font-size="10" fill="hsl(var(--c-security))" font-family="JetBrains Mono Variable, monospace">no</text>
+
+  <defs>
+    <marker id="f24b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--text-dim)"/></marker>
+    <marker id="f24g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-testing))"/></marker>
+    <marker id="f24r" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-security))"/></marker>
+  </defs>
+</svg>
+</Figura>
+
+## Reglas de validación
+
+RHF se apoya en los estándares de validación de HTML. Las reglas se pasan como segundo argumento de `register`:
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">required</div><div class="deflist__d">Campo obligatorio.</div></div>
+<div class="deflist__row"><div class="deflist__t">minLength / maxLength</div><div class="deflist__d">Longitud mínima / máxima (objeto con <code>value</code> y <code>message</code>).</div></div>
+<div class="deflist__row"><div class="deflist__t">min / max</div><div class="deflist__d">Valor numérico mínimo / máximo.</div></div>
+<div class="deflist__row"><div class="deflist__t">pattern</div><div class="deflist__d">Una expresión regular que debe cumplir (ej. formato de email).</div></div>
+<div class="deflist__row"><div class="deflist__t">validate</div><div class="deflist__d">Función personalizada: devuelve <code>true</code> o un mensaje de error.</div></div>
+</div>
+
+```jsx
+// required con mensaje
+{...register('name', { required: 'El nombre es requerido' })}
+
+// minLength
+{...register('password', {
+  minLength: { value: 8, message: 'Mínimo 8 caracteres' },
+})}
+
+// validate: función propia (ej. confirmar contraseña)
+{...register('confirmacion', {
+  validate: (value) => value === password || 'Las contraseñas no coinciden',
+})}
+
+// pattern con regex (ej. email)
+{...register('email', {
+  required: 'El email es requerido',
+  pattern: {
+    value: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z]{2,4}$/i,
+    message: 'Ingresá un email válido',
+  },
+})}
+```
+
+### Mini-repaso de expresiones regulares
+
+Una **regex** es un patrón de búsqueda. Los **metacaracteres** más comunes:
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">^ … $</div><div class="deflist__d">Inicio y fin de la cadena.</div></div>
+<div class="deflist__row"><div class="deflist__t">.</div><div class="deflist__d">Cualquier carácter (menos salto de línea).</div></div>
+<div class="deflist__row"><div class="deflist__t">* + ?</div><div class="deflist__d">Cero o más · una o más · cero o una repetición.</div></div>
+<div class="deflist__row"><div class="deflist__t">[...]</div><div class="deflist__d">Conjunto de caracteres permitidos. Ej: <code>[A-Za-z0-9]</code>.</div></div>
+<div class="deflist__row"><div class="deflist__t">\d</div><div class="deflist__d">Un dígito (equivale a <code>[0-9]</code>).</div></div>
+</div>
+
+```text
+/\d+/                 → uno o más dígitos: "42", "12345"
+/^[A-Za-z0-9]+$/      → solo letras y números, sin espacios ni símbolos
+```
+
+## formState: el pulso del formulario
+
+`formState` informa el estado actual del formulario para reaccionar a las interacciones del usuario:
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">isDirty</div><div class="deflist__d">El usuario modificó algún campo respecto del valor inicial.</div></div>
+<div class="deflist__row"><div class="deflist__t">isValid</div><div class="deflist__d">Todos los campos cumplen las reglas de validación.</div></div>
+<div class="deflist__row"><div class="deflist__t">isSubmitting</div><div class="deflist__d">El formulario se está enviando (ideal para deshabilitar el botón).</div></div>
+<div class="deflist__row"><div class="deflist__t">isSubmitted</div><div class="deflist__d">El formulario se envió al menos una vez.</div></div>
+<div class="deflist__row"><div class="deflist__t">errors</div><div class="deflist__d">Objeto con los errores de validación por campo.</div></div>
+</div>
+
+```jsx
+const { register, handleSubmit, formState } = useForm();
+const { isValid, isSubmitting, errors } = formState;
+
+<button type="submit" disabled={!isValid || isSubmitting}>
+  {isSubmitting ? 'Enviando...' : 'Enviar'}
+</button>
+```
+
+<Callout type="tip" title="Mejor experiencia de usuario">
+Con `formState` podés **deshabilitar** el botón mientras se envía (`isSubmitting`), evitar enviar si el form es inválido (`isValid`) y mostrar errores solo después de que el usuario interactuó. Todo sin escribir lógica de estado a mano.
+</Callout>
+
+<Callout type="parcial">
+- **React Hook Form** simplifica formularios con hooks (menos código, menos re-renders).
+- Todo sale de **`useForm`**: `register`, `handleSubmit`, `formState`, `watch`, `reset`.
+- **`register`** conecta el campo y define reglas; se aplica con **spread** `{...register('campo', reglas)}`.
+- **`handleSubmit(onSubmit)`** valida y, si está OK, llama a `onSubmit` con los datos.
+- Reglas: `required`, `minLength`, `maxLength`, `min`, `max`, **`pattern`** (regex), `validate`.
+- **`formState`**: `errors`, `isValid`, `isDirty`, `isSubmitting`, `isSubmitted`.
+- Los errores se muestran con `errors.campo.message`.
+</Callout>

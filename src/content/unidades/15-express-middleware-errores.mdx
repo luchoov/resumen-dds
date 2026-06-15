@@ -1,0 +1,171 @@
+---
+numero: 15
+titulo: 'Middlewares y manejo de errores'
+subtitulo: 'El “puente” por el que pasa cada petición, y cómo evitar que el servidor se caiga.'
+bloque: 'Backend con Express'
+semana: 'Semana 07'
+color: express
+icon: 'layers'
+resumen: 'Un middleware es una función (req, res, next) que intercepta la petición; el manejo de errores se hace con un middleware especial de 4 parámetros y, en producción, con gestores de procesos como PM2.'
+tags: ['Middleware', 'next()', 'Error handling', 'PM2']
+---
+
+## ¿Qué es un middleware?
+
+Un **middleware** es una función que se ubica **en el medio** del camino de la petición: recibe la información de una función, la transforma o valida, y se la pasa a la siguiente. Es la pieza central de Express.
+
+Un middleware recibe **3 argumentos**:
+
+```js
+function miMiddleware(req, res, next) {
+  // req  → la petición
+  // res  → la respuesta
+  // next → función que pasa el control al siguiente middleware
+}
+```
+
+<Figura caption="La petición atraviesa los middlewares en orden hasta llegar al handler que responde.">
+<svg viewBox="0 0 640 150" width="640" height="150" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <text x="18" y="59" font-size="10" fill="var(--text-dim)" font-family="JetBrains Mono Variable, monospace">req</text>
+  <line x1="34" y1="65" x2="53" y2="65" stroke="hsl(var(--c-express))" stroke-width="2" marker-end="url(#m15)"/>
+  <rect x="55" y="40" width="120" height="50" rx="10" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="115" y="62" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">Logger</text>
+  <text x="115" y="78" font-size="10" fill="var(--text-dim)" text-anchor="middle">next()</text>
+
+  <rect x="205" y="40" width="120" height="50" rx="10" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="265" y="62" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">Auth</text>
+  <text x="265" y="78" font-size="10" fill="var(--text-dim)" text-anchor="middle">next()</text>
+
+  <rect x="355" y="40" width="120" height="50" rx="10" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="415" y="62" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">Validación</text>
+  <text x="415" y="78" font-size="10" fill="var(--text-dim)" text-anchor="middle">next()</text>
+
+  <rect x="505" y="40" width="115" height="50" rx="10" fill="var(--surface)" stroke="hsl(var(--c-express))"/>
+  <text x="562" y="62" font-size="12" fill="hsl(var(--c-express))" text-anchor="middle" font-weight="700">Handler</text>
+  <text x="562" y="78" font-size="10" fill="var(--text-dim)" text-anchor="middle">res.json()</text>
+
+  <line x1="175" y1="65" x2="203" y2="65" stroke="hsl(var(--c-express))" stroke-width="2" marker-end="url(#m15)"/>
+  <line x1="325" y1="65" x2="353" y2="65" stroke="hsl(var(--c-express))" stroke-width="2" marker-end="url(#m15)"/>
+  <line x1="475" y1="65" x2="503" y2="65" stroke="hsl(var(--c-express))" stroke-width="2" marker-end="url(#m15)"/>
+  <text x="320" y="120" font-size="11" fill="var(--text-dim)" text-anchor="middle">Cada middleware decide si continúa (next) o corta la cadena.</text>
+  <defs><marker id="m15" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-express))"/></marker></defs>
+</svg>
+</Figura>
+
+### El argumento next()
+
+`next` es la clave. Termina el middleware actual de dos formas posibles:
+
+<div class="proscons">
+<div class="proscons__col pro"><p class="proscons__h">next() — todo bien</p><ul><li>Sin argumentos.</li><li>Le pasa el control al siguiente middleware/handler.</li></ul></div>
+<div class="proscons__col con"><p class="proscons__h">next(error) — algo falló</p><ul><li>Con un objeto Error como argumento.</li><li>Salta directo al middleware de errores.</li></ul></div>
+</div>
+
+```js
+function miMiddleware(req, res, next) {
+  if (user.permisos !== 'admin') {
+    return next(new Error('No tenés permisos para estar aquí'));
+  }
+  next(); // todo OK, sigue la cadena
+}
+```
+
+### Cómo se montan
+
+```js
+// Global: se ejecuta ANTES de toda respuesta
+app.use(miMiddleware);
+
+// En una ruta puntual: sólo para ese endpoint
+app.get('/', miMiddleware, (req, res) => { /* … */ });
+```
+
+<Callout type="warn" title="El orden importa (¡muchísimo!)">
+Los middlewares se ejecutan **en el orden en que los definís**. Un middleware de autenticación tiene que ir **antes** del handler que protege. Y si olvidás llamar a `next()`, la petición **se queda colgada** para siempre.
+</Callout>
+
+## Manejo de errores
+
+El objetivo es claro: que **ningún error tire abajo el servidor** y que todos queden **registrados** para analizarlos. En Express, el manejo de errores se hace con un middleware especial que tiene **4 parámetros** (`err` primero) y se define **al final** de todas las rutas:
+
+```js
+app.use(function (err, req, res, next) {
+  console.error(err.stack);
+  res.status(500).send('Tuvimos un problema, intentá más tarde.');
+});
+```
+
+### Errores síncronos vs asíncronos
+
+<div class="conceptos">
+<article class="concepto"><div class="concepto__t">Síncronos</div><div class="concepto__d">Express los atrapa <strong>solo</strong>. Si un handler hace <code>throw</code>, se procesan automáticamente.</div></article>
+<article class="concepto"><div class="concepto__t">Asíncronos</div><div class="concepto__d">Hay que pasarlos a mano con <code>next(error)</code> dentro de un <code>try/catch</code>, o el servidor cae.</div></article>
+</div>
+
+```js
+// Síncrono: Express lo atrapa solo
+app.get('/testerror', (req, res) => {
+  throw new Error('error de prueba'); // capturado
+});
+
+// Asíncrono: hay que pasarlo a next() manualmente
+router.get('/api/articulos-error', async (req, res, next) => {
+  try {
+    const items = await db.articulos.findAll({ attributes: ['NoExiste'] });
+    res.json(items);
+  } catch (error) {
+    next(error); // sin esto, el servidor se cae
+  }
+});
+```
+
+<Callout type="tip" title="express-async-errors al rescate">
+Para no escribir `try/catch` + `next(error)` en cada ruta async, se instala el paquete **`express-async-errors`**. Con sólo importarlo, captura automáticamente los errores de las funciones `async/await`.
+</Callout>
+
+## Excepciones no controladas
+
+¿Y si un error escapa de todos los `try/catch`? Node emite eventos globales que **no evitan** la caída, pero permiten **registrar** la causa antes de morir:
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">uncaughtException</div><div class="deflist__d">Se emite ante una excepción de JS no capturada en el ciclo de eventos.</div></div>
+<div class="deflist__row"><div class="deflist__t">unhandledRejection</div><div class="deflist__d">Se emite cuando una Promesa es rechazada y nadie la atrapó con <code>.catch()</code>.</div></div>
+</div>
+
+```js
+import process from 'node:process';
+
+process.on('uncaughtException', (err) => {
+  console.error('Error no manejado:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (error, promise) => {
+  console.error('Promesa sin catch:', error);
+});
+```
+
+## Gestores de procesos en producción
+
+Como siempre existe la chance de que algo tire el servidor, en **producción** usamos un **gestor de procesos**: una capa extra que mantiene la app viva.
+
+<div class="conceptos">
+<article class="concepto"><div class="concepto__t">Reinicio automático</div><div class="concepto__d">Si la app se cae, la levanta sola.</div></article>
+<article class="concepto"><div class="concepto__t">Monitoreo</div><div class="concepto__d">Métricas de rendimiento y consumo en tiempo real.</div></article>
+<article class="concepto"><div class="concepto__t">Clúster</div><div class="concepto__d">Aprovecha varios núcleos del CPU.</div></article>
+</div>
+
+Los más conocidos: **PM2**, **Forever** y **StrongLoop**.
+
+<Callout type="info" title="Azure y PM2">
+Al publicar en **Azure App Service (Linux, stack Node)**, la plataforma ya provee **PM2** automáticamente. Vos sólo subís el código.
+</Callout>
+
+<Callout type="parcial">
+- **Middleware** = función `(req, res, next)` que intercepta la petición.
+- **`next()`** sigue la cadena · **`next(error)`** salta al manejador de errores.
+- El **orden** de los middlewares define cuándo se ejecutan.
+- Errores **síncronos** los atrapa Express; los **asíncronos** se pasan con `next(error)` (o `express-async-errors`).
+- **`uncaughtException` / `unhandledRejection`** registran lo que escapó.
+- En **producción**, un **gestor de procesos** (PM2) mantiene la app viva.
+</Callout>

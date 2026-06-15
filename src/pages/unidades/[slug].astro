@@ -1,0 +1,80 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Callout from '../../components/Callout.astro';
+import Figura from '../../components/Figura.astro';
+import Icon from '../../components/Icon.astro';
+
+export async function getStaticPaths() {
+  const unidades = (await getCollection('unidades')).sort(
+    (a, b) => a.data.numero - b.data.numero,
+  );
+  return unidades.map((entry, i) => ({
+    params: { slug: entry.id },
+    props: {
+      entry,
+      prev: unidades[i - 1] ?? null,
+      next: unidades[i + 1] ?? null,
+    },
+  }));
+}
+
+const { entry, prev, next } = Astro.props;
+const { Content } = await render(entry);
+const d = entry.data;
+---
+
+<BaseLayout
+  title={`U${d.numero} · ${d.titulo} — Resumen DDS`}
+  description={d.resumen}
+  accent={d.color}
+  current={entry.id}
+>
+  <article class="wrap">
+    <header class="uhero">
+      <a href="/" class="uhero__back"><Icon name="arrowLeft" size={15} /> Índice general</a>
+      <div class="uhero__top">
+        <span class="uhero__glyph"><Icon name={d.icon} size={26} stroke={1.5} /></span>
+        <span class="uhero__no">{d.numero}</span>
+      </div>
+      <p class="uhero__eyebrow">{d.bloque} · {d.semana}</p>
+      <h1 class="uhero__title">{d.titulo}</h1>
+      <p class="uhero__sub">{d.subtitulo}</p>
+      <div class="uhero__meta chips">
+        {d.tags.map((t) => <span class="chip">{t}</span>)}
+      </div>
+    </header>
+
+    <div class="sumario">
+      <p class="sumario__h">En una frase</p>
+      <p>{d.resumen}</p>
+    </div>
+
+    <div class="prose">
+      <Content components={{ Callout, Figura }} />
+    </div>
+
+    <nav class="pager" aria-label="Navegación entre unidades">
+      {
+        prev ? (
+          <a class="pager__link prev" href={`/unidades/${prev.id}/`}>
+            <span class="pager__dir"><Icon name="arrowLeft" size={13} /> Unidad {prev.data.numero}</span>
+            <span class="pager__t">{prev.data.titulo}</span>
+          </a>
+        ) : (
+          <span class="pager__link prev pager__empty" />
+        )
+      }
+      {
+        next ? (
+          <a class="pager__link next" href={`/unidades/${next.id}/`}>
+            <span class="pager__dir">Unidad {next.data.numero} <Icon name="arrowRight" size={13} /></span>
+            <span class="pager__t">{next.data.titulo}</span>
+          </a>
+        ) : (
+          <span class="pager__link next pager__empty" />
+        )
+      }
+    </nav>
+  </article>
+</BaseLayout>

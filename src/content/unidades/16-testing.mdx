@@ -1,0 +1,208 @@
+---
+numero: 16
+titulo: 'Testing de software'
+subtitulo: 'Probar para prevenir errores: tipos de prueba, TDD, Jest, Vitest y Supertest.'
+bloque: 'Calidad y Seguridad'
+semana: 'Semana 08'
+color: testing
+icon: 'flask'
+resumen: 'El testing verifica que el software hace lo que debe; se divide en pruebas funcionales y no funcionales, y TDD propone escribir la prueba antes que el código (rojo → verde → refactor).'
+tags: ['TDD', 'Jest', 'Vitest', 'Supertest', 'Pruebas unitarias']
+---
+
+## ¿Qué es testing y por qué importa?
+
+El **testing** es el proceso de **evaluar y verificar** que un software hace lo que se supone que debe hacer. Sus beneficios: **prevenir errores**, **reducir costos** de desarrollo y **mejorar el rendimiento**.
+
+<Callout type="analogia" title="La red de seguridad">
+Las pruebas son la **red del trapecista**. No evitan que te equivoques, pero hacen que equivocarte no sea catastrófico: si rompés algo que antes funcionaba, una prueba en rojo te avisa **al instante**, no el cliente en producción.
+</Callout>
+
+## Tipos de pruebas
+
+A grandes rasgos, se dividen en dos grandes familias:
+
+<div class="proscons">
+<div class="proscons__col pro"><p class="proscons__h">Funcionales</p><ul><li>¿La app hace lo que el requisito pide?</li><li>Unitarias, integración, sistema, regresión, humo, aceptación…</li></ul></div>
+<div class="proscons__col con"><p class="proscons__h">No funcionales</p><ul><li>¿Qué tan bien lo hace?</li><li>Rendimiento, carga, estrés, seguridad, usabilidad, escalabilidad…</li></ul></div>
+</div>
+
+Una forma clásica de pensar la **cantidad** de cada tipo es la *pirámide de testing*: muchas pruebas unitarias en la base (rápidas y baratas) y pocas end-to-end arriba (lentas y caras).
+
+<Figura caption="Pirámide de testing: más cantidad y velocidad abajo, más realismo y costo arriba.">
+<svg viewBox="0 0 640 290" width="640" height="290" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <polygon points="225,25 168,110 282,110" fill="color-mix(in srgb, hsl(var(--c-security)) 22%, var(--surface))" stroke="hsl(var(--c-security))" stroke-width="1.3"/>
+  <polygon points="168,110 282,110 333,185 117,185" fill="color-mix(in srgb, hsl(var(--c-express)) 22%, var(--surface))" stroke="hsl(var(--c-express))" stroke-width="1.3"/>
+  <polygon points="117,185 333,185 380,255 70,255" fill="color-mix(in srgb, hsl(var(--c-testing)) 22%, var(--surface))" stroke="hsl(var(--c-testing))" stroke-width="1.3"/>
+  <text x="225" y="93" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">E2E</text>
+  <text x="225" y="153" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">Integración</text>
+  <text x="225" y="226" font-size="14" fill="var(--text)" text-anchor="middle" font-weight="700">Unitarias</text>
+
+  <rect x="408" y="62" width="13" height="13" rx="2" fill="hsl(var(--c-security))"/>
+  <text x="429" y="73" font-size="11.5" fill="var(--text-soft)">E2E — pocas, lentas · Playwright</text>
+  <rect x="408" y="135" width="13" height="13" rx="2" fill="hsl(var(--c-express))"/>
+  <text x="429" y="146" font-size="11.5" fill="var(--text-soft)">Integración · Supertest</text>
+  <rect x="408" y="208" width="13" height="13" rx="2" fill="hsl(var(--c-testing))"/>
+  <text x="429" y="219" font-size="11.5" fill="var(--text-soft)">Unitarias — muchas, rápidas · Jest</text>
+
+  <line x1="40" y1="255" x2="40" y2="30" stroke="var(--text-dim)" stroke-width="1.3" marker-end="url(#pyr16)"/>
+  <text x="34" y="150" font-size="10.5" fill="var(--text-dim)" text-anchor="middle" transform="rotate(-90 34 150)">menos cantidad · más realismo</text>
+  <defs><marker id="pyr16" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+</svg>
+</Figura>
+
+### Pruebas funcionales (las más nombradas)
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">Unitaria</div><div class="deflist__d">Prueba la unidad más pequeña (una función). Es de <strong>caja blanca</strong> y la más elemental.</div></div>
+<div class="deflist__row"><div class="deflist__t">Integración</div><div class="deflist__d">Verifica que dos o más componentes interactúen bien entre sí (datos, llamadas a BD).</div></div>
+<div class="deflist__row"><div class="deflist__t">Sistema</div><div class="deflist__d">Prueba todo el sistema como una unidad contra la especificación.</div></div>
+<div class="deflist__row"><div class="deflist__t">Regresión</div><div class="deflist__d">Verifica que lo que <strong>antes</strong> funcionaba siga funcionando tras un cambio.</div></div>
+<div class="deflist__row"><div class="deflist__t">Humo (smoke)</div><div class="deflist__d">Chequeo rápido de que las funciones <strong>básicas</strong> andan. ¿Prende y arranca?</div></div>
+<div class="deflist__row"><div class="deflist__t">Aceptación</div><div class="deflist__d">Prueba formal contra los requisitos de <strong>negocio</strong>; replica al usuario real.</div></div>
+</div>
+
+### Manuales vs automatizadas
+
+- **Manuales:** una persona ejecuta los pasos, hace clic, ingresa datos y valida resultados.
+- **Automatizadas:** scripts y herramientas ejecutan los casos solos, registran resultados y defectos.
+
+## TDD — Test-Driven Development
+
+El **desarrollo guiado por pruebas** combina dos prácticas: **escribir la prueba primero** y **refactorizar**. La idea: traducir los requisitos a pruebas, de modo que cuando pasen, el software cumple lo pedido. Se resume en un ciclo de tres pasos:
+
+<Figura caption="El ciclo de TDD: rojo → verde → refactor, repetido por cada requisito.">
+<svg viewBox="0 0 480 230" width="480" height="230" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <circle cx="240" cy="60" r="44" fill="color-mix(in srgb, hsl(var(--c-security)) 16%, var(--surface))" stroke="hsl(var(--c-security))" stroke-width="2"/>
+  <text x="240" y="55" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">1. ROJO</text>
+  <text x="240" y="72" font-size="10" fill="var(--text-dim)" text-anchor="middle">prueba que falla</text>
+
+  <circle cx="120" cy="165" r="44" fill="color-mix(in srgb, hsl(var(--c-testing)) 16%, var(--surface))" stroke="hsl(var(--c-testing))" stroke-width="2"/>
+  <text x="120" y="160" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">2. VERDE</text>
+  <text x="120" y="177" font-size="10" fill="var(--text-dim)" text-anchor="middle">código mínimo</text>
+
+  <circle cx="360" cy="165" r="44" fill="color-mix(in srgb, hsl(var(--c-react)) 16%, var(--surface))" stroke="hsl(var(--c-react))" stroke-width="2"/>
+  <text x="360" y="160" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">3. REFACTOR</text>
+  <text x="360" y="177" font-size="10" fill="var(--text-dim)" text-anchor="middle">limpiar</text>
+
+  <path d="M205,95 A 130 130 0 0 0 150 128" fill="none" stroke="var(--text-dim)" stroke-width="2" marker-end="url(#t16)"/>
+  <path d="M165,180 A 130 130 0 0 0 315 180" fill="none" stroke="var(--text-dim)" stroke-width="2" marker-end="url(#t16)"/>
+  <path d="M330,128 A 130 130 0 0 0 275 95" fill="none" stroke="var(--text-dim)" stroke-width="2" marker-end="url(#t16)"/>
+  <defs><marker id="t16" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+</svg>
+</Figura>
+
+<ol class="pasos">
+<li><strong>Elegir un requisito</strong> de la lista (el que dé más conocimiento y sea simple).</li>
+<li><strong>Escribir la prueba</strong> antes que el código (te obliga a pensar como el cliente).</li>
+<li><strong>Verificar que falla</strong> (si no falla, el requisito ya estaba o la prueba está mal).</li>
+<li><strong>Escribir el código mínimo</strong> que la haga pasar. <em>“Keep It Simple”.</em></li>
+<li><strong>Ejecutar todas las pruebas</strong> y ver que pasan.</li>
+<li><strong>Refactorizar</strong> para eliminar duplicación.</li>
+<li><strong>Actualizar la lista</strong> de requisitos y repetir.</li>
+</ol>
+
+## Jest: el framework de pruebas
+
+**Jest** es el framework de pruebas unitarias más popular en JavaScript (creado por Meta). Sus pruebas corren **en paralelo**, así que es rápido.
+
+```bash
+npm install --save-dev jest
+```
+
+Un primer test:
+
+```js
+// index.js
+export function sumar(a, b) {
+  return a + b;
+}
+```
+
+```js
+// suma.test.js
+import { sumar } from './index.js';
+
+test('suma dos números', () => {
+  const resultado = sumar(1, 1);
+  expect(resultado).toBe(2);
+});
+```
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">test() / it()</div><div class="deflist__d">Define una prueba: una descripción + una función callback. <code>it()</code> es alias de <code>test()</code>.</div></div>
+<div class="deflist__row"><div class="deflist__t">expect()</div><div class="deflist__d">Función de afirmación. Devuelve un objeto con “matchers” para comparar.</div></div>
+<div class="deflist__row"><div class="deflist__t">describe()</div><div class="deflist__d">Agrupa varias pruebas relacionadas (por ej. del mismo recurso).</div></div>
+</div>
+
+### toBe vs toEqual (¡clásico de parcial!)
+
+| Matcher | Compara | Úsalo para |
+|---|---|---|
+| `toBe()` | Identidad / valor primitivo (`Object.is`) | números, strings, booleanos |
+| `toEqual()` | Igualdad **profunda** (recorre propiedades) | objetos y arrays |
+
+```js
+expect({ name: 'john' }).toEqual({ name: 'john' }); // PASA (igualdad profunda)
+expect({ name: 'john' }).toBe({ name: 'john' });    // FALLA (distintos en memoria)
+```
+
+## Testing de backend con Supertest
+
+**Supertest** permite probar **APIs HTTP** sin levantar el servidor a mano: le pasás tu app Express y dispara las peticiones. Se combina con Jest: Supertest **consume** los endpoints y Jest **evalúa** los resultados.
+
+```bash
+npm install supertest --save-dev
+```
+
+```js
+import request from 'supertest';
+import app from '../app.js';
+
+describe('API usuarios', () => {
+  it('responde la lista como array JSON', async () => {
+    const res = await request(app).get('/api/usuarios');
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.headers['content-type']).toMatch(/json/);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(2);
+  });
+});
+```
+
+<Callout type="warn" title="No te quedes solo en las pruebas de humo">
+Verificar únicamente status y headers son **pruebas de humo**: confirman que la API “está viva”, pero no que devuelve lo correcto. Hay que validar también el **cuerpo** de la respuesta, que es lo que el consumidor realmente espera.
+</Callout>
+
+## Alternativas y herramientas modernas
+
+<div class="conceptos">
+<article class="concepto"><div class="concepto__t">Vitest</div><div class="concepto__d">Alternativa moderna a Jest. ESM y TS nativos, API compatible, mucho más rápido. Ideal con Vite.</div></article>
+<article class="concepto"><div class="concepto__t">MSW</div><div class="concepto__d">Mock Service Worker: intercepta peticiones HTTP a nivel de red para mocks realistas.</div></article>
+<article class="concepto"><div class="concepto__t">React Testing Library</div><div class="concepto__d">Prueba componentes desde la mirada del <strong>usuario</strong>, no la implementación.</div></article>
+<article class="concepto"><div class="concepto__t">Playwright / Cypress</div><div class="concepto__d">Pruebas End-to-End: flujos completos del usuario en un navegador real.</div></article>
+</div>
+
+### Estrategia recomendada (React + Express + Sequelize)
+
+| Nivel | Herramientas | Qué prueba |
+|---|---|---|
+| Unitario | Jest / Vitest | Funciones de negocio, validaciones |
+| Componentes | RTL + MSW | Componentes React aislados |
+| Integración API | Jest + Supertest | Endpoints Express con Sequelize |
+| End-to-End | Playwright / Cypress | Flujos completos del usuario |
+
+<Callout type="tip" title="¿Cuánta cobertura?">
+La recomendación es al menos un **80%** del código, priorizando siempre las **rutas críticas del negocio** (login, pagos, transacciones).
+</Callout>
+
+<Callout type="parcial">
+- Testing = verificar que el software hace lo que debe (prevenir errores, bajar costos).
+- **Funcionales** (¿qué hace?) vs **no funcionales** (¿qué tan bien?).
+- La **unitaria** es la mínima (caja blanca, una función).
+- **TDD**: rojo (prueba que falla) → verde (código mínimo) → refactor.
+- **Jest**: `test/it`, `expect`, `describe`. **`toBe`** = primitivos · **`toEqual`** = objetos (profunda).
+- **Supertest** prueba endpoints HTTP; combinado con Jest.
+- **Vitest** = alternativa moderna (ESM/TS nativo, más rápido).
+</Callout>

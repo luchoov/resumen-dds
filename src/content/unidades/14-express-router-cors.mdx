@@ -1,0 +1,153 @@
+---
+numero: 14
+titulo: 'Router, estáticos y CORS'
+subtitulo: 'Organizar rutas en módulos, servir archivos y permitir peticiones entre dominios.'
+bloque: 'Backend con Express'
+semana: 'Semana 07'
+color: express
+icon: 'route'
+resumen: 'express.Router() modulariza las rutas; express.static() sirve archivos; y CORS es la política del navegador que habilita (o bloquea) peticiones entre dominios distintos.'
+tags: ['Router', 'express.static', 'CORS', 'path / __dirname']
+---
+
+## express.Router(): rutas modulares
+
+Meter todas las rutas en `index.js` se vuelve un caos. La clase **`express.Router()`** permite crear manejadores de rutas **modulares y montables**: una especie de **“mini-aplicación”** con su propio sistema de rutas y middlewares, que después se **monta** en la app principal.
+
+<Figura caption="Cada router agrupa rutas relacionadas y se monta en la app principal.">
+<svg viewBox="0 0 620 220" width="620" height="220" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="225" y="15" width="170" height="50" rx="12" fill="var(--surface-2)" stroke="hsl(var(--c-express))"/>
+  <text x="310" y="38" font-size="14" fill="var(--text)" text-anchor="middle" font-weight="700">app (index.js)</text>
+  <text x="310" y="55" font-size="11" fill="var(--text-dim)" text-anchor="middle">app.use(router)</text>
+
+  <rect x="30" y="135" width="160" height="60" rx="12" fill="var(--surface)" stroke="var(--border)"/>
+  <text x="110" y="160" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">articulosRouter</text>
+  <text x="110" y="178" font-size="10" fill="var(--text-dim)" text-anchor="middle">/api/articulos…</text>
+
+  <rect x="230" y="135" width="160" height="60" rx="12" fill="var(--surface)" stroke="var(--border)"/>
+  <text x="310" y="160" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">usuariosRouter</text>
+  <text x="310" y="178" font-size="10" fill="var(--text-dim)" text-anchor="middle">/api/usuarios…</text>
+
+  <rect x="430" y="135" width="160" height="60" rx="12" fill="var(--surface)" stroke="var(--border)"/>
+  <text x="510" y="160" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">ventasRouter</text>
+  <text x="510" y="178" font-size="10" fill="var(--text-dim)" text-anchor="middle">/api/ventas…</text>
+
+  <line x1="280" y1="65" x2="110" y2="133" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="310" y1="65" x2="310" y2="133" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="340" y1="65" x2="510" y2="133" stroke="var(--border)" stroke-width="1.5"/>
+</svg>
+</Figura>
+
+```js
+// articulos.js  →  el módulo router
+const router = express.Router();
+
+router.get('/api/articulos', async (req, res, next) => { /* … */ });
+router.get('/api/articulos/:id', async (req, res, next) => { /* … */ });
+
+module.exports = router;
+```
+
+```js
+// index.js  →  se monta el router en la app
+const articulosRouter = require('./routes/articulos');
+app.use(articulosRouter);
+```
+
+<Callout type="tip" title="¿Por qué modularizar?">
+Cada recurso (artículos, usuarios, ventas) tiene su propio archivo router. El `index.js` queda limpio y el proyecto **escala** sin convertirse en un monstruo de 1000 líneas.
+</Callout>
+
+## Sirviendo archivos estáticos
+
+Los **archivos estáticos** son recursos que se entregan **tal cual**, sin procesamiento del servidor: imágenes, CSS, JS, fuentes. Se sirven con el middleware `express.static()`:
+
+```js
+app.use(express.static('public'));
+```
+
+Con esto, una imagen en `public/images/logo.png` queda accesible en:
+
+```text
+http://localhost:3000/images/logo.png
+```
+
+Notá que la carpeta `public` **no** aparece en la URL: es la raíz desde donde Express busca.
+
+### path y __dirname
+
+Para que la ruta a `public` sea **correcta sin importar desde dónde ejecutes** el script, se combina el módulo `path` con `__dirname`:
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">__dirname</div><div class="deflist__d">Variable global de Node con la ruta <strong>del directorio del archivo actual</strong>.</div></div>
+<div class="deflist__row"><div class="deflist__t">path.join()</div><div class="deflist__d">Une segmentos de ruta de forma segura y multiplataforma (Windows / Linux).</div></div>
+</div>
+
+```js
+const path = require('path');
+app.use(express.static(path.join(__dirname, 'public')));
+```
+
+<Callout type="info" title="¿Por qué no usar 'public' a secas?">
+`'public'` es relativo al **directorio de trabajo** (desde dónde corrés `node`), que puede variar. `path.join(__dirname, 'public')` es relativo al **archivo**, así que siempre apunta al lugar correcto.
+</Callout>
+
+## CORS: Cross-Origin Resource Sharing
+
+**CORS** es una **política del navegador** que, por seguridad, **bloquea** que una página de un origen (dominio) acceda a recursos de **otro** origen mediante peticiones AJAX (`fetch`, `XMLHttpRequest`, Axios…).
+
+<Figura caption="Sin CORS habilitado, el navegador bloquea la respuesta de otro dominio.">
+<svg viewBox="0 0 640 200" width="640" height="200" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="20" y="70" width="170" height="60" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="105" y="95" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">Frontend</text>
+  <text x="105" y="114" font-size="10" fill="var(--text-dim)" text-anchor="middle">dds-frontend.com</text>
+
+  <rect x="450" y="70" width="170" height="60" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="535" y="95" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">Backend</text>
+  <text x="535" y="114" font-size="10" fill="var(--text-dim)" text-anchor="middle">dds-backend.com</text>
+
+  <line x1="192" y1="88" x2="448" y2="88" stroke="hsl(var(--c-express))" stroke-width="2" marker-end="url(#a14)"/>
+  <text x="320" y="80" font-size="12" fill="hsl(var(--c-express))" text-anchor="middle" font-weight="700">fetch()</text>
+
+  <line x1="448" y1="112" x2="280" y2="112" stroke="hsl(var(--c-security))" stroke-width="2" stroke-dasharray="5 4"/>
+  <text x="300" y="150" font-size="13" fill="hsl(var(--c-security))" text-anchor="middle" font-weight="700">Bloqueado por CORS</text>
+  <text x="320" y="170" font-size="10" fill="var(--text-dim)" text-anchor="middle">salvo que el backend lo habilite</text>
+
+  <defs><marker id="a14" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-express))"/></marker></defs>
+</svg>
+</Figura>
+
+Para que el backend **autorice** a otros dominios, se instala y configura el middleware `cors`:
+
+```bash
+npm i cors
+```
+
+```js
+const cors = require('cors');
+
+// Opción A: permitir TODOS los orígenes (cómodo, pero abierto)
+app.use(cors());
+
+// Opción B: lista blanca — sólo el frontend autorizado
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true, // necesario si se usan cookies
+}));
+```
+
+<Callout type="danger" title="cors() abierto ≠ producción">
+`app.use(cors())` habilita **cualquier** origen. Está bien para practicar, pero en producción se restringe con una **lista blanca** (`origin`) a los dominios que realmente deben acceder.
+</Callout>
+
+<Callout type="analogia" title="CORS es el portero del edificio">
+El navegador es un **portero estricto**: por defecto no deja que gente de “otro edificio” (otro dominio) retire paquetes. La cabecera CORS que manda el backend es la **lista de invitados autorizados**. Si tu dominio no está en la lista, el portero te frena.
+</Callout>
+
+<Callout type="parcial">
+- **`express.Router()`** = mini-app de rutas modulares; se monta con `app.use(router)`.
+- **`express.static('public')`** sirve archivos tal cual (la carpeta no aparece en la URL).
+- **`__dirname`** + **`path.join()`** = rutas robustas sin importar desde dónde corras el script.
+- **CORS** = política del **navegador** que bloquea peticiones entre dominios distintos.
+- Se habilita en el **backend** con el middleware `cors` (abierto o con lista blanca).
+</Callout>

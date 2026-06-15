@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de tareas</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Styles -->
+    <style>
+        body {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h3>Lista de Tareas</h3>
+        <form id="formulario">
+            <div class="form-group">
+                <label for="tarea">Tarea:</label>
+                <input type="text" class="form-control" id="tarea" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Agregar Tarea</button>
+        </form>
+        <ul id="lista-tareas" class="list-group mt-3">
+            <!-- Aquí se agregarán los elementos de la lista -->
+        </ul>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="index.js"></script>
+</body>
+</html>

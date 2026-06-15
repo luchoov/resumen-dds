@@ -1,0 +1,182 @@
+---
+numero: 21
+titulo: 'React Router'
+subtitulo: 'Navegación del lado del cliente: rutas, parámetros, rutas anidadas y hooks.'
+bloque: 'React: navegación y datos'
+semana: 'Semana 11'
+color: router
+icon: 'compass'
+resumen: 'React Router habilita el ruteo del lado del cliente: cambia la URL y renderiza componentes sin recargar la página, con rutas dinámicas, rutas anidadas (Outlet) y hooks como useParams y useNavigate.'
+tags: ['react-router-dom', 'Outlet', 'useParams', 'useNavigate', 'Rutas']
+---
+
+## Ruteo del lado del cliente
+
+En las webs tradicionales, cada clic en un enlace pedía una **página nueva al servidor**. El **ruteo del lado del cliente** cambia la URL y renderiza el componente **inmediatamente**, sin recargar.
+
+<div class="proscons">
+<div class="proscons__col pro"><p class="proscons__h">Ventajas</p><ul><li>Experiencia más rápida (no se recarga todo).</li><li>Permite transiciones y animaciones.</li><li>No se vuelve a evaluar todo el HTML/CSS/JS.</li></ul></div>
+<div class="proscons__col con"><p class="proscons__h">Cómo se logra</p><ul><li>Librería <code>react-router-dom</code>.</li><li>Un <code>&lt;BrowserRouter&gt;</code> que envuelve la app.</li><li>Enlaces con <code>&lt;Link&gt;</code> (no <code>&lt;a&gt;</code>).</li></ul></div>
+</div>
+
+```bash
+npm install react-router-dom
+```
+
+## Las piezas básicas
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">BrowserRouter</div><div class="deflist__d">Envuelve toda la app y habilita el ruteo del lado del cliente.</div></div>
+<div class="deflist__row"><div class="deflist__t">Routes</div><div class="deflist__d">Contenedor de rutas. Renderiza <strong>solo la primera</strong> que coincida con la URL.</div></div>
+<div class="deflist__row"><div class="deflist__t">Route</div><div class="deflist__d">Una regla: <code>path</code> (URL) + <code>element</code> (componente a mostrar).</div></div>
+<div class="deflist__row"><div class="deflist__t">Link</div><div class="deflist__d">Navega sin recargar: <code>&lt;Link to="/acerca"&gt;</code>.</div></div>
+</div>
+
+```jsx
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Inicio />} />
+        <Route path="/acerca" element={<Acerca />} />
+        <Route path="/detalle/:id" element={<Detalle />} />
+        <Route path="*" element={<Error404 />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">/detalle/:id</div><div class="deflist__d">Ruta <strong>dinámica</strong>: <code>:id</code> matchea cualquier valor (<code>/detalle/42</code>).</div></div>
+<div class="deflist__row"><div class="deflist__t">path="*"</div><div class="deflist__d">Comodín: atrapa cualquier URL no encontrada → página 404.</div></div>
+</div>
+
+<Callout type="tip" title="Routes elige la PRIMERA coincidencia">
+`<Routes>` recorre las rutas en orden y renderiza solo la primera que matchea la URL actual. Por eso el comodín `*` (404) va siempre **al final**.
+</Callout>
+
+## Rutas jerárquicas y anidadas
+
+Una app real tiene una estructura de rutas en forma de **árbol**:
+
+<Figura caption="Estructura jerárquica de rutas: unas vistas viven dentro de otras.">
+<svg viewBox="0 0 500 200" width="500" height="200" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono Variable, monospace">
+  <rect x="200" y="15" width="100" height="38" rx="9" fill="var(--surface)" stroke="hsl(var(--c-router))"/>
+  <text x="250" y="39" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">/</text>
+
+  <rect x="70" y="90" width="150" height="38" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="145" y="114" font-size="12" fill="var(--text)" text-anchor="middle">/productos</text>
+  <rect x="290" y="90" width="150" height="38" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="365" y="114" font-size="12" fill="var(--text)" text-anchor="middle">/contacto</text>
+
+  <rect x="70" y="155" width="150" height="38" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="145" y="179" font-size="12" fill="var(--text)" text-anchor="middle">/productos/:id</text>
+
+  <line x1="240" y1="53" x2="150" y2="88" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="260" y1="53" x2="360" y2="88" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="145" y1="128" x2="145" y2="153" stroke="var(--border)" stroke-width="1.5"/>
+</svg>
+</Figura>
+
+Cuando varias subrutas comparten un **layout común**, se usan **rutas anidadas** + el componente **`<Outlet />`**, que marca el “hueco” donde se renderiza la ruta hija:
+
+```jsx
+// Las rutas hijas se anidan dentro de la ruta padre
+<Routes>
+  <Route path="/admin" element={<Admin />}>
+    <Route path="usuarios" element={<Usuarios />} />
+    <Route path="configuracion" element={<Configuracion />} />
+  </Route>
+</Routes>
+```
+
+```jsx
+// Admin.jsx — el layout común con el <Outlet /> donde entra el hijo
+import { Outlet, Link } from 'react-router-dom';
+
+export default function Admin() {
+  return (
+    <div>
+      <h2>Panel de administración</h2>
+      <nav>
+        <Link to="usuarios">Usuarios</Link> | <Link to="configuracion">Configuración</Link>
+      </nav>
+      <hr />
+      <Outlet /> {/* aquí se renderiza Usuarios o Configuracion */}
+    </div>
+  );
+}
+```
+
+<Callout type="analogia" title="Outlet = el hueco del marco">
+Pensá la ruta padre como un **portarretrato** (con su menú y título fijos) y `<Outlet />` como el **hueco** donde cambia la foto. Navegás entre hijos y solo cambia el contenido del hueco, no el marco.
+</Callout>
+
+## Los hooks de React Router
+
+### useParams — leer parámetros de la URL
+
+```jsx
+import { useParams } from 'react-router-dom';
+
+// Para la ruta /productos/:categoria/:id
+export default function Producto() {
+  const { categoria, id } = useParams();
+  return <p>Categoría: {categoria} · ID: {id}</p>;
+}
+// En /productos/electronica/1 → categoria="electronica", id="1"
+```
+
+### useNavigate — navegar por código
+
+```jsx
+import { useNavigate } from 'react-router-dom';
+
+const navigate = useNavigate();
+
+<button onClick={() => navigate('/contactos')}>Contactos</button>
+
+// con replace: no agrega entrada al historial (no se puede "volver")
+navigate('/404', { replace: true });
+```
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">useParams</div><div class="deflist__d">Devuelve un objeto con los parámetros dinámicos de la ruta (<code>:id</code>).</div></div>
+<div class="deflist__row"><div class="deflist__t">useNavigate</div><div class="deflist__d">Devuelve una función para navegar programáticamente (tras un login, submit…).</div></div>
+<div class="deflist__row"><div class="deflist__t">useLocation</div><div class="deflist__d">Da la ubicación actual (ruta, query, estado). Útil para redirección condicional.</div></div>
+<div class="deflist__row"><div class="deflist__t">&lt;Navigate /&gt;</div><div class="deflist__d">Componente que redirige al renderizarse (wrapper de useNavigate).</div></div>
+</div>
+
+## Patrón: ruta protegida
+
+Combinando `useLocation` + `<Navigate>` se logra el patrón clásico: si no estás logueado, te manda al login y, tras loguearte, te devuelve a donde ibas.
+
+```jsx
+import { Navigate, useLocation } from 'react-router-dom';
+
+function RutaProtegida({ children, usuario }) {
+  const location = useLocation();
+  if (!usuario) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return children;
+}
+
+// Uso
+<Route path="/perfil" element={
+  <RutaProtegida usuario={usuario}><Perfil /></RutaProtegida>
+} />
+```
+
+<Callout type="parcial">
+- **React Router** = ruteo del lado del cliente: cambia la URL **sin recargar**.
+- `<BrowserRouter>` envuelve la app · `<Routes>` renderiza la **primera** ruta que matchea · `<Route path element>`.
+- Rutas **dinámicas** con `:id`; comodín `*` para el 404 (al final).
+- **Rutas anidadas** comparten layout vía **`<Outlet />`**.
+- **`<Link>`** navega sin recargar (no `<a>`).
+- Hooks: **useParams** (leer `:id`), **useNavigate** (navegar por código), **useLocation** (ubicación actual).
+- Patrón **ruta protegida** con `<Navigate>` + `useLocation`.
+</Callout>

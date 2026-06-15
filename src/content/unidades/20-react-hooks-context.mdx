@@ -1,0 +1,292 @@
+---
+numero: 20
+titulo: 'Componentes, Hooks y Context'
+subtitulo: 'Estado con useState, efectos con useEffect, renderizado condicional, listas y Context.'
+bloque: 'React: fundamentos'
+semana: 'Semana 10'
+color: react
+icon: 'hook'
+resumen: 'Los hooks (useState, useEffect, useContext) dan estado y ciclo de vida a los componentes funcionales; el estado se levanta al padre común y Context evita el prop drilling.'
+tags: ['useState', 'useEffect', 'Context', 'Lifting state', 'map / key']
+---
+
+## Fragments: agrupar sin ensuciar el DOM
+
+React exige **un único elemento raíz** por componente. Para agrupar varios hijos sin agregar un `<div>` extra al DOM, se usa un **Fragment**:
+
+```jsx
+function MiComponente() {
+  return (
+    <>
+      <h1>Título</h1>
+      <p>Contenido</p>
+    </>
+  );
+}
+```
+
+<Callout type="tip" title="¿Por qué importa?">
+Evita `<div>` innecesarios que pueden romper layouts (flex, grid) o estilos. La sintaxis corta `<>…</>` es la más usada.
+</Callout>
+
+## ¿Qué son los Hooks?
+
+Los **Hooks** (React 16.8, 2018) son funciones que permiten **“engancharse”** al estado y al ciclo de vida desde componentes **funcionales**. Antes, eso solo se podía en clases.
+
+<div class="conceptos cols-3">
+<article class="concepto"><div class="concepto__t">useState</div><div class="concepto__d">Agrega estado local al componente.</div></article>
+<article class="concepto"><div class="concepto__t">useEffect</div><div class="concepto__d">Ejecuta efectos secundarios (fetch, timers) tras el render.</div></article>
+<article class="concepto"><div class="concepto__t">useContext</div><div class="concepto__d">Accede a un Context sin pasar props nivel por nivel.</div></article>
+</div>
+
+### Las 3 reglas de los Hooks
+
+<ol class="pasos">
+<li>Solo se llaman desde <strong>componentes funcionales</strong> o desde otros hooks (nunca en clases).</li>
+<li>Solo en el <strong>nivel superior</strong>: nunca dentro de <code>if</code>, bucles o funciones anidadas.</li>
+<li>Esto garantiza que se llamen <strong>en el mismo orden</strong> en cada render, para que React preserve bien el estado.</li>
+</ol>
+
+<Callout type="danger" title="El error más común">
+Poner un hook dentro de un `if` o un `for`. Rompe el orden entre renders y React pierde la pista del estado. **Siempre arriba**, antes de cualquier `return`.
+</Callout>
+
+## useState: el estado
+
+```jsx
+import { useState } from 'react';
+
+function Contador() {
+  // [valor actual, función para actualizarlo] = useState(valor inicial)
+  const [count, setCount] = useState(0);
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      Clicleado {count} veces
+    </button>
+  );
+}
+```
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">count</div><div class="deflist__d">El valor actual del estado. React lo conserva entre renders.</div></div>
+<div class="deflist__row"><div class="deflist__t">setCount</div><div class="deflist__d">Función para actualizar. Al llamarla, el componente <strong>re-renderiza</strong>.</div></div>
+<div class="deflist__row"><div class="deflist__t">useState(0)</div><div class="deflist__d">El argumento es el valor inicial (solo se usa en el primer render).</div></div>
+</div>
+
+<Callout type="info" title="Es desestructuración de arrays">
+`useState` devuelve un **array de 2 elementos**. Los nombres `count`/`setCount` los elegís vos; podés actualizar usando el valor previo: `setCount(prev => prev + 1)`.
+</Callout>
+
+Lo clave es el **ciclo**: un evento llama al `setter`, React actualiza el estado y **vuelve a renderizar** el componente con el nuevo valor.
+
+<Figura caption="El ciclo de re-render: evento → setState → nuevo render con el estado actualizado.">
+<svg viewBox="0 0 560 200" width="560" height="200" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="200" y="20" width="160" height="44" rx="9" fill="color-mix(in srgb, hsl(var(--c-react)) 13%, var(--surface))" stroke="hsl(var(--c-react))"/>
+  <text x="280" y="42" font-size="12.5" fill="var(--text)" text-anchor="middle" font-weight="700">Render</text>
+  <text x="280" y="57" font-size="10" fill="var(--text-dim)" text-anchor="middle">muestra count</text>
+
+  <rect x="400" y="118" width="150" height="44" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="475" y="140" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">Evento</text>
+  <text x="475" y="155" font-size="10" fill="var(--text-dim)" text-anchor="middle">onClick…</text>
+
+  <rect x="10" y="118" width="150" height="44" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="85" y="140" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">setCount(...)</text>
+  <text x="85" y="155" font-size="10" fill="var(--text-dim)" text-anchor="middle">actualiza estado</text>
+
+  <path d="M360,48 C 460,60 500,85 490,116" fill="none" stroke="var(--text-dim)" stroke-width="1.5" marker-end="url(#st20)"/>
+  <text x="470" y="92" font-size="10" fill="var(--text-dim)" text-anchor="middle">1. dispara</text>
+  <path d="M400,140 H162" fill="none" stroke="var(--text-dim)" stroke-width="1.5" marker-end="url(#st20)"/>
+  <text x="281" y="133" font-size="10" fill="var(--text-dim)" text-anchor="middle">2. llama al setter</text>
+  <path d="M70,116 C 60,85 110,60 198,46" fill="none" stroke="hsl(var(--c-react))" stroke-width="1.5" marker-end="url(#st20b)"/>
+  <text x="92" y="92" font-size="10" fill="hsl(var(--c-react))" text-anchor="middle">3. re-render</text>
+
+  <defs>
+    <marker id="st20" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--text-dim)"/></marker>
+    <marker id="st20b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-react))"/></marker>
+  </defs>
+</svg>
+</Figura>
+
+## useEffect: el ciclo de vida
+
+`useEffect` ejecuta código **después** del render. Su comportamiento depende del **segundo argumento** (el array de dependencias):
+
+<Figura caption="El array de dependencias decide cuándo se vuelve a ejecutar el efecto.">
+<svg viewBox="0 0 620 175" width="620" height="175" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="15" y="30" width="190" height="115" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="110" y="55" font-size="13" fill="hsl(var(--c-react))" text-anchor="middle" font-weight="700">[ ]  vacío</text>
+  <text x="110" y="82" font-size="11" fill="var(--text-soft)" text-anchor="middle">Solo en el PRIMER</text>
+  <text x="110" y="98" font-size="11" fill="var(--text-soft)" text-anchor="middle">render (montaje)</text>
+  <text x="110" y="124" font-size="10" fill="var(--text-dim)" text-anchor="middle">≈ componentDidMount</text>
+
+  <rect x="215" y="30" width="190" height="115" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="310" y="55" font-size="13" fill="hsl(var(--c-router))" text-anchor="middle" font-weight="700">[dato]</text>
+  <text x="310" y="82" font-size="11" fill="var(--text-soft)" text-anchor="middle">Cuando 'dato'</text>
+  <text x="310" y="98" font-size="11" fill="var(--text-soft)" text-anchor="middle">cambia</text>
+  <text x="310" y="124" font-size="10" fill="var(--text-dim)" text-anchor="middle">≈ componentDidUpdate</text>
+
+  <rect x="415" y="30" width="190" height="115" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="510" y="55" font-size="13" fill="hsl(var(--c-data))" text-anchor="middle" font-weight="700">return () =&gt; {}</text>
+  <text x="510" y="82" font-size="11" fill="var(--text-soft)" text-anchor="middle">Limpieza antes</text>
+  <text x="510" y="98" font-size="11" fill="var(--text-soft)" text-anchor="middle">de destruir</text>
+  <text x="510" y="124" font-size="10" fill="var(--text-dim)" text-anchor="middle">≈ componentWillUnmount</text>
+</svg>
+</Figura>
+
+```jsx
+import { useEffect } from 'react';
+
+// Solo al montar (1 vez): ideal para cargar datos iniciales
+useEffect(() => {
+  getDatos();
+}, []);
+
+// Cuando 'empresa' cambia
+useEffect(() => {
+  getResumen(empresa);
+}, [empresa]);
+
+// Limpieza al desmontar
+useEffect(() => {
+  return () => console.log('componente limpiado');
+}, []);
+```
+
+## Comunicación entre componentes
+
+<div class="proscons">
+<div class="proscons__col pro"><p class="proscons__h">Padre → Hijo</p><ul><li>A través de <strong>props</strong>.</li><li>Los datos fluyen hacia abajo.</li></ul></div>
+<div class="proscons__col con"><p class="proscons__h">Hijo → Padre</p><ul><li>El padre pasa una <strong>función callback</strong> como prop.</li><li>El hijo la invoca cuando algo pasa.</li></ul></div>
+</div>
+
+```jsx
+// Hijo: invoca la función que recibió por props
+const Nombre = (props) => <input onChange={props.onCambios} />;
+
+// Padre: define la función y se la pasa al hijo
+function App() {
+  const onCambioHandler = (event) => console.log(event.target.value);
+  return <Nombre onCambios={onCambioHandler} />;
+}
+```
+
+## Renderizado condicional
+
+Como en React todo es JavaScript, mostramos cosas según el estado de varias formas:
+
+```jsx
+// 1. if / variable de elemento
+let boton = isLoggedIn ? <Logout /> : <Login />;
+
+// 2. operador && (mostrar SOLO si la condición es true)
+{unreadMessages.length > 0 && <h2>Tenés {unreadMessages.length} mensajes</h2>}
+
+// 3. operador ternario (if-else en una línea)
+<b>{isLoggedIn ? 'conectado' : 'desconectado'}</b>
+
+// 4. devolver null para no renderizar nada
+if (!props.warn) return null;
+```
+
+<Callout type="warn" title="Cuidado con && y números/strings vacíos">
+`unreadMessages.length && <h2>…</h2>` renderiza un **`0`** si la longitud es 0 (porque `0` es falsy pero se imprime). Por eso conviene comparar: `length > 0 && …`.
+</Callout>
+
+## Renderizado de listas: map y key
+
+Para renderizar arrays se usa `map()`, y **cada elemento necesita una `key` única**:
+
+```jsx
+const productos = [
+  { id: 1, title: 'Cabbage' },
+  { id: 2, title: 'Garlic' },
+];
+
+const items = productos.map((p) => <li key={p.id}>{p.title}</li>);
+return <ul>{items}</ul>;
+```
+
+<Callout type="tip" title="¿Para qué sirve la key?">
+La `key` (idealmente un ID de la base, **no** el índice) le permite a React identificar cada elemento entre renders, para saber qué insertar, borrar o reordenar sin recrear todo.
+</Callout>
+
+## Lifting State Up (levantar el estado)
+
+Cuando **dos componentes hermanos** necesitan compartir el mismo dato, se **mueve el estado al ancestro común** más cercano, que se vuelve la **única fuente de verdad** y lo pasa hacia abajo por props.
+
+<Figura caption="El estado vive en el padre; los hijos lo reciben por props y lo actualizan con un callback.">
+<svg viewBox="0 0 520 200" width="520" height="200" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="180" y="20" width="160" height="56" rx="12" fill="var(--surface)" stroke="hsl(var(--c-react))"/>
+  <text x="260" y="44" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">MyApp (padre)</text>
+  <text x="260" y="62" font-size="10" fill="hsl(var(--c-react))" text-anchor="middle">useState(count)</text>
+
+  <rect x="40" y="135" width="160" height="50" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="120" y="165" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">Button</text>
+  <rect x="320" y="135" width="160" height="50" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="400" y="165" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">Button</text>
+
+  <line x1="220" y1="76" x2="120" y2="133" stroke="hsl(var(--c-data))" stroke-width="1.6" marker-end="url(#l20)"/>
+  <line x1="300" y1="76" x2="400" y2="133" stroke="hsl(var(--c-data))" stroke-width="1.6" marker-end="url(#l20)"/>
+  <text x="130" y="108" font-size="10" fill="var(--text-dim)" text-anchor="middle">count + onClick</text>
+  <text x="392" y="108" font-size="10" fill="var(--text-dim)" text-anchor="middle">count + onClick</text>
+  <defs><marker id="l20" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-data))"/></marker></defs>
+</svg>
+</Figura>
+
+```jsx
+function MyApp() {
+  const [count, setCount] = useState(0);     // estado en el padre
+  const handleClick = () => setCount(count + 1);
+
+  return (
+    <>
+      <MyButton count={count} onClick={handleClick} />
+      <MyButton count={count} onClick={handleClick} />
+    </>
+  );
+}
+
+function MyButton({ count, onClick }) {
+  return <button onClick={onClick}>Clicleado {count} veces</button>;
+}
+// Ahora ambos botones muestran y comparten el mismo número.
+```
+
+## Context: evitar el prop drilling
+
+**Context** permite compartir datos “globales” (usuario, tema, idioma) a través del árbol **sin pasar props** en cada nivel intermedio.
+
+```jsx
+import { createContext, useContext } from 'react';
+
+const ThemeContext = createContext('light');         // 1. crear
+
+function App() {
+  return (
+    <ThemeContext.Provider value="dark"> {/* 2. proveer */}
+      <ThemedButton />
+    </ThemeContext.Provider>
+  );
+}
+
+function ThemedButton() {
+  const theme = useContext(ThemeContext);            // 3. consumir
+  return <button>Tema: {theme}</button>;
+}
+```
+
+<Callout type="warn" title="Usar con moderación">
+Context es ideal para datos verdaderamente **globales**. Abusar de él dificulta la **reutilización** de componentes (quedan atados a un contexto). Para pasar datos entre pocos niveles, mejor props.
+</Callout>
+
+<Callout type="parcial">
+- **Fragment** (`<>…</>`) agrupa hijos sin meter un `<div>` extra.
+- **Hooks** dan estado/ciclo de vida a funciones. Reglas: solo en funciones y en el **nivel superior**.
+- **useState** → `[valor, setValor] = useState(inicial)`; `setValor` re-renderiza.
+- **useEffect**: `[]` = al montar · `[dep]` = cuando cambia · `return () =>` = limpieza.
+- Padre→hijo por **props**; hijo→padre por **callback**.
+- Condicional: `if`, `&&`, ternario, `return null`. Listas con `map` + **`key`** única.
+- **Lifting state up**: el estado va al **padre común**.
+- **Context** comparte datos globales sin **prop drilling**.
+</Callout>

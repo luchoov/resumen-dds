@@ -1,0 +1,20 @@
+{
+  "name": "crud_usuarios",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "init-db": "node scripts/inicializar-bd.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "sequelize": "^6.37.7",
+    "sql-formatter": "^15.5.2",
+    "sqlite3": "^5.1.7"
+  }
+}

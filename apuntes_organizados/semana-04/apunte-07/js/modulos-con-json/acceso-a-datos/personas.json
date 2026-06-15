@@ -1,0 +1,58 @@
+[
+  {
+    "id": 1,
+    "nombre": "Mario",
+    "correo": "mario@gmail.com",
+    "profesion": "Ingeniero Químico",
+    "fechaNacimiento": "1990-10-01T03:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "nombre": "Carla",
+    "correo": "carla@gmail.com",
+    "profesion": "Ingeniero en Sistemas de Información",
+    "fechaNacimiento": "2012-10-01T03:00:00.000Z"
+  },
+  {
+    "id": 3,
+    "nombre": "Juan",
+    "correo": "juan@gmail.com",
+    "profesion": "Ingeniero en Sistemas de Información",
+    "fechaNacimiento": "1994-10-01T03:00:00.000Z"
+  },
+  {
+    "id": 4,
+    "nombre": "Maria",
+    "correo": "maria@gmail.com",
+    "profesion": "Medico clínico",
+    "fechaNacimiento": "2016-07-01T03:00:00.000Z"
+  },
+  {
+    "id": 5,
+    "nombre": "Milagros",
+    "correo": "milagros@gmail.com",
+    "profesion": "Vigilante",
+    "fechaNacimiento": "2015-07-01T03:00:00.000Z"
+  },
+  {
+    "id": 6,
+    "nombre": "Bruce",
+    "correo": "bruce@gmail.com",
+    "profesion": "Superheroe",
+    "fechaNacimiento": "2015-07-01T03:00:00.000Z"
+  },
+  {
+    "id": 7,
+    "nombre": "Daniela",
+    "correo": "daniela@gmail.com",
+    "profesion": "Superheroe",
+    "fechaNacimiento": "2000-07-01T03:00:00.000Z"
+  },
+  {
+    "id": 8,
+    "nombre": "Luis miguel",
+    "correo": "luismi@gmail.com",
+    "profesion": "Cantante",
+    "fechaNacimiento": "1965-07-01T04:00:00.000Z"
+  }
+]

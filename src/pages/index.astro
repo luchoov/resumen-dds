@@ -1,0 +1,84 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { getCollection } from 'astro:content';
+
+const unidades = (await getCollection('unidades')).sort(
+  (a, b) => a.data.numero - b.data.numero,
+);
+
+const meta: Record<string, { desc: string; icon: string }> = {
+  'Backend con Express': {
+    desc: 'El servidor: rutas, middlewares y manejo de errores.',
+    icon: 'server',
+  },
+  'Calidad y Seguridad': {
+    desc: 'Que el software ande bien y sea seguro.',
+    icon: 'shield',
+  },
+  'React: fundamentos': {
+    desc: 'Componentes, JSX, hooks y estado.',
+    icon: 'atom',
+  },
+  'React: navegación y datos': {
+    desc: 'Rutas, formularios y consumo de APIs.',
+    icon: 'compass',
+  },
+};
+
+const bloques: { nombre: string; color: string; items: typeof unidades }[] = [];
+for (const u of unidades) {
+  let b = bloques.find((x) => x.nombre === u.data.bloque);
+  if (!b) {
+    b = { nombre: u.data.bloque, color: u.data.color, items: [] };
+    bloques.push(b);
+  }
+  b.items.push(u);
+}
+---
+
+<BaseLayout title="Resumen DDS — Unidades 13 a 24">
+  <header class="wrap wrap--wide cover">
+    <p class="cover__kicker">Desarrollo de Software · UTN</p>
+    <h1 class="cover__title">Resumen<br /><em>teórico</em></h1>
+    <p class="cover__lead">
+      Un repaso visual de las unidades <strong>13 a 24</strong>: del backend con Express a React.
+      Testing, seguridad, hooks, router, Axios y formularios — con diagramas y ejemplos, para
+      estudiar desde cualquier pantalla.
+    </p>
+    <div class="cover__stats">
+      <div><div class="stat__n">12</div><div class="stat__l">Unidades</div></div>
+      <div><div class="stat__n">04</div><div class="stat__l">Bloques</div></div>
+      <div><div class="stat__n">13–24</div><div class="stat__l">Rango</div></div>
+    </div>
+  </header>
+
+  <div class="wrap wrap--wide idx">
+    {
+      bloques.map((b, gi) => (
+        <section class="idx__group" data-accent={b.color}>
+          <div class="idx__ghead">
+            <span class="idx__gicon">
+              <Icon name={meta[b.nombre]?.icon ?? 'diamond'} size={18} />
+            </span>
+            <h2 class="idx__gname">{b.nombre}</h2>
+            <span class="idx__gmeta">
+              Parte {String(gi + 1).padStart(2, '0')}
+            </span>
+          </div>
+          <p class="idx__gdesc">{meta[b.nombre]?.desc}</p>
+          {b.items.map((u) => (
+            <a class="idx__row" href={`/unidades/${u.id}/`} data-accent={u.data.color}>
+              <span class="idx__no">{u.data.numero}</span>
+              <span class="idx__body">
+                <span class="idx__t">{u.data.titulo}</span>
+                <span class="idx__d">{u.data.subtitulo}</span>
+              </span>
+              <span class="idx__go"><Icon name="arrowRight" size={18} /></span>
+            </a>
+          ))}
+        </section>
+      ))
+    }
+  </div>
+</BaseLayout>

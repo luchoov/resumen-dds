@@ -1,0 +1,158 @@
+---
+import '../styles/global.css';
+import { getCollection } from 'astro:content';
+import Icon from '../components/Icon.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  accent?: string;
+  current?: string;
+}
+const {
+  title,
+  description = 'Resumen teórico de Desarrollo de Software (UTN) — Unidades 13 a 24: Express, Testing, Seguridad, React, Router, Axios y formularios.',
+  accent = 'react',
+  current,
+} = Astro.props;
+
+const unidades = (await getCollection('unidades')).sort(
+  (a, b) => a.data.numero - b.data.numero,
+);
+
+const bloques: { nombre: string; color: string; items: typeof unidades }[] = [];
+for (const u of unidades) {
+  let b = bloques.find((x) => x.nombre === u.data.bloque);
+  if (!b) {
+    b = { nombre: u.data.bloque, color: u.data.color, items: [] };
+    bloques.push(b);
+  }
+  b.items.push(u);
+}
+
+const bloqueIcon: Record<string, string> = {
+  'Backend con Express': 'server',
+  'Calidad y Seguridad': 'shield',
+  'React: fundamentos': 'atom',
+  'React: navegación y datos': 'compass',
+};
+---
+
+<!doctype html>
+<html lang="es" data-theme="dark" data-accent={accent}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#14130f" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b5701f' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M3 5a2 2 0 0 1 2-2h6v16H5a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M21 5a2 2 0 0 0-2-2h-6v16h6a2 2 0 0 1 2 2Z'/%3E%3C/svg%3E"
+    />
+    <title>{title}</title>
+    <script is:inline>
+      (function () {
+        try {
+          const t = localStorage.getItem('dds-theme');
+          if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__in">
+        <a href="/" class="brand">
+          <span class="brand__mark"><Icon name="book" size={19} stroke={1.7} /></span>
+          <span class="brand__txt">
+            <span class="brand__name">Resumen DDS</span>
+            <span class="brand__sub">Unidades 13–24</span>
+          </span>
+        </a>
+        <div class="topbar__actions">
+          <button class="iconbtn" id="theme-toggle" aria-label="Cambiar tema" title="Cambiar tema">
+            <span class="t-sun"><Icon name="sun" size={19} /></span>
+            <span class="t-moon"><Icon name="moon" size={18} /></span>
+          </button>
+          <button class="iconbtn" id="menu-open" aria-label="Abrir índice" title="Índice">
+            <Icon name="menu" size={20} />
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="drawer" id="drawer" aria-hidden="true">
+      <button class="drawer__scrim" id="drawer-close" aria-label="Cerrar índice"></button>
+      <nav class="drawer__panel" aria-label="Índice de unidades">
+        <div class="drawer__head">
+          <span class="eyebrow">Índice</span>
+          <button class="iconbtn" id="drawer-close-2" aria-label="Cerrar">
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <a
+          href="/"
+          class="drawer__home"
+          aria-current={current === undefined ? 'page' : undefined}
+        >
+          <Icon name="diamond" size={13} /> Portada
+        </a>
+        {
+          bloques.map((b) => (
+            <>
+              <p class="drawer__group" data-accent={b.color}>
+                <Icon name={bloqueIcon[b.nombre] ?? 'diamond'} size={14} /> {b.nombre}
+              </p>
+              {b.items.map((u) => (
+                <a
+                  href={`/unidades/${u.id}/`}
+                  class="drawer__link"
+                  data-accent={u.data.color}
+                  aria-current={current === u.id ? 'page' : undefined}
+                >
+                  <span class="drawer__num">{u.data.numero}</span>
+                  <span>{u.data.titulo}</span>
+                </a>
+              ))}
+            </>
+          ))
+        }
+      </nav>
+    </div>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="foot">
+      <div class="wrap wrap--wide foot__in">
+        <p>
+          <strong style="color:var(--text-soft)">Resumen DDS</strong> · Unidades 13 a 24 ·
+          Resumen teórico de estudio.
+        </p>
+        <p class="eyebrow">Desarrollo de Software · UTN</p>
+      </div>
+    </footer>
+
+    <script>
+      const root = document.documentElement;
+      document.getElementById('theme-toggle')?.addEventListener('click', () => {
+        const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+        root.dataset.theme = next;
+        try {
+          localStorage.setItem('dds-theme', next);
+        } catch (e) {}
+      });
+
+      const drawer = document.getElementById('drawer');
+      const open = () => drawer?.setAttribute('open', '');
+      const close = () => drawer?.removeAttribute('open');
+      document.getElementById('menu-open')?.addEventListener('click', open);
+      document.getElementById('drawer-close')?.addEventListener('click', close);
+      document.getElementById('drawer-close-2')?.addEventListener('click', close);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+      });
+    </script>
+  </body>
+</html>

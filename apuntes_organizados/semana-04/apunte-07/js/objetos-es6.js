@@ -1,0 +1,67 @@
+// declaro un nuevo tipo de objeto
+class Persona {
+
+    constructor(nombre, correo, profesion, fechaNacimiento) {
+        this.nombre = nombre;
+        this.correo = correo;
+        this.profesion = profesion;
+        this.fechaNacimiento = fechaNacimiento;
+    }
+
+    saludar() {
+        console.log('Hola soy ' + this.nombre);
+    }
+
+    edad() {
+        const hoy = new Date();
+        return hoy.getFullYear() - this.fechaNacimiento.getFullYear();
+    }
+}
+
+
+//Instancio objetos de tipo Persona
+const mario = new Persona('Mario', 'mario@gmail.com', 'Ingeniero Químico', new Date(1990, 9, 1));
+const carla = new Persona('Carla', 'carla@gmail.com', 'Ingeniero en Sistemas de Información', new Date(2012, 9, 1));
+
+console.log(' ====================== Objetos Persona ======================');
+console.log('mario', mario);
+console.log('carla', carla);
+
+
+console.log(' ====================== Verificamos tipo dato ======================');
+console.log('tipo de datos de mario:', typeof mario); // aunque es de tipo Persona, sigue siendo de tipo object implicitamente
+
+// saludos
+console.log(' ====================== Saludos ======================');
+mario.saludar();
+carla.saludar();
+
+// edades
+console.log(' ====================== Edades ======================');
+console.log('Edad mario:', mario.edad());
+console.log('Edad carla:', carla.edad());
+
+
+// Ejemplos con protoype
+console.log('\n\n====================== Ejemplos con protoype en Persona ======================');
+Persona.prototype.esMayorDeEdad = function () {
+    // if (this.edad() > 18)
+    //     return true;
+    // return false
+    return this.edad() > 18;
+};
+console.log('====================== ¿Es mayor de edad? ======================');
+console.log('¿mario es mayor de edad? :', mario.esMayorDeEdad());
+console.log('¿carla es mayor de edad?:', carla.esMayorDeEdad());
+
+console.log('\n\n====================== Ejemplos con protoype en carla ======================');
+carla.__proto__.esMayorDeEdad = function () {
+    return false;
+};
+console.log('====================== ¿Es mayor de edad? ======================');
+console.log('¿mario es mayor de edad? :', mario.esMayorDeEdad());
+console.log('¿carla es mayor de edad?:', carla.esMayorDeEdad());
+
+
+console.log('\n\n====================== Inicialización de objetos sin new ======================');
+// const maria = Persona('María', 'maria@gmail.com', 'Ingeniero en Sistemas de Información', new Date(2012, 9, 1));

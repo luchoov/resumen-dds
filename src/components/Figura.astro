@@ -1,0 +1,14 @@
+---
+/** Contenedor para diagramas SVG con leyenda. */
+interface Props {
+  caption?: string;
+}
+const { caption } = Astro.props;
+---
+
+<figure class="figura svgbox">
+  <div class="figura__svg">
+    <slot />
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

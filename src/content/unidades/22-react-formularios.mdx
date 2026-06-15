@@ -1,0 +1,215 @@
+---
+numero: 22
+titulo: 'Comunicación y formularios'
+subtitulo: 'Props y callbacks, Context y formularios controlados vs no controlados.'
+bloque: 'React: navegación y datos'
+semana: 'Semana 11'
+color: router
+icon: 'form'
+resumen: 'Los componentes se comunican por props (padre→hijo) y callbacks (hijo→padre); en formularios, un componente controlado usa el estado de React como única fuente de verdad, mientras uno no controlado lee el DOM con ref.'
+tags: ['Props', 'Callbacks', 'Controlado', 'No controlado', 'onChange']
+---
+
+## Comunicación padre ↔ hijo
+
+Los componentes se organizan en un **árbol**. La info se pasa así:
+
+<Figura caption="Props bajan, eventos suben. El padre actúa de coordinador.">
+<svg viewBox="0 0 480 180" width="480" height="180" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="160" y="20" width="160" height="50" rx="12" fill="var(--surface)" stroke="hsl(var(--c-router))"/>
+  <text x="240" y="50" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">Padre</text>
+
+  <rect x="160" y="115" width="160" height="50" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="240" y="145" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">Hijo</text>
+
+  <line x1="200" y1="70" x2="200" y2="113" stroke="hsl(var(--c-data))" stroke-width="1.8" marker-end="url(#c22)"/>
+  <text x="120" y="95" font-size="11" fill="hsl(var(--c-data))" text-anchor="middle">props </text>
+
+  <line x1="280" y1="113" x2="280" y2="72" stroke="hsl(var(--c-express))" stroke-width="1.8" marker-end="url(#c22b)"/>
+  <text x="360" y="95" font-size="11" fill="hsl(var(--c-express))" text-anchor="middle">callback </text>
+  <defs>
+    <marker id="c22" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-data))"/></marker>
+    <marker id="c22b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-express))"/></marker>
+  </defs>
+</svg>
+</Figura>
+
+- **Padre → Hijo:** por **props** (datos, funciones, lo que sea).
+- **Hijo → Padre:** el padre define una **función callback** y se la pasa al hijo; el hijo la **invoca**.
+
+```jsx
+// Padre: tiene el estado y define el callback
+function ListaMensajes() {
+  const [mensajes, setMensajes] = useState([]);
+  const agregarMensaje = (texto) => setMensajes([...mensajes, texto]);
+
+  return <NuevoMensaje onEnviar={agregarMensaje} />;
+}
+
+// Hijo: invoca el callback recibido
+function NuevoMensaje({ onEnviar }) {
+  const [texto, setTexto] = useState('');
+  return (
+    <>
+      <input value={texto} onChange={(e) => setTexto(e.target.value)} />
+      <button onClick={() => onEnviar(texto)}>Enviar</button>
+    </>
+  );
+}
+```
+
+<Callout type="tip" title="Convención onAlgo / props.onAlgo">
+Nombrá las funciones como **`onAlgo`** en el padre y usalas como **`props.onAlgo`** en el hijo. Mejora muchísimo la legibilidad y deja claro el flujo de eventos.
+</Callout>
+
+### Context como atajo
+
+Cuando el dato es global (usuario, tema, idioma), **Context** evita pasar props por cada nivel. El padre **provee** y cualquier descendiente **consume** con `useContext`:
+
+```jsx
+const UsuarioContext = createContext();
+
+function App() {
+  const [usuario, setUsuario] = useState(null);
+  return (
+    <UsuarioContext.Provider value={{ usuario, setUsuario }}>
+      <Header />
+    </UsuarioContext.Provider>
+  );
+}
+
+function Header() {
+  const { usuario } = useContext(UsuarioContext);
+  return <div>Bienvenido: {usuario?.nombre || 'Invitado'}</div>;
+}
+```
+
+## Formularios en React
+
+Los formularios son la parte interactiva clave de una web. Hacerlos bien implica cuidar tres cosas:
+
+<div class="conceptos cols-3">
+<article class="concepto"><div class="concepto__t">Accesibilidad</div><div class="concepto__d">Semántica HTML correcta para quienes no usan mouse/teclado.</div></article>
+<article class="concepto"><div class="concepto__t">Validación</div><div class="concepto__d">Cada campo tiene reglas: obligatorio, formato, mínimo/máximo.</div></article>
+<article class="concepto"><div class="concepto__t">Serialización</div><div class="concepto__d">Tomar los datos, manipularlos y enviarlos al servidor.</div></article>
+</div>
+
+## Componentes controlados
+
+Un **componente controlado** usa el **estado de React como única fuente de verdad**: el `value` del input está atado al estado, y cada cambio actualiza ese estado. Es un ciclo:
+
+<Figura caption="El ciclo del componente controlado: el estado manda, el input refleja.">
+<svg viewBox="0 0 420 180" width="420" height="180" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="130" y="20" width="160" height="44" rx="11" fill="var(--surface)" stroke="hsl(var(--c-router))"/>
+  <text x="210" y="47" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">Input (value)</text>
+
+  <rect x="250" y="115" width="150" height="44" rx="11" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="325" y="142" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">setState</text>
+
+  <rect x="20" y="115" width="150" height="44" rx="11" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="95" y="142" font-size="12" fill="var(--text)" text-anchor="middle" font-weight="700">State</text>
+
+  <path d="M255,55 C 300,75 320,95 325,113" fill="none" stroke="var(--text-dim)" stroke-width="1.8" marker-end="url(#f22)"/>
+  <text x="345" y="90" font-size="10" fill="var(--text-dim)">onChange</text>
+  <path d="M250,137 L172,137" fill="none" stroke="var(--text-dim)" stroke-width="1.8" marker-end="url(#f22)"/>
+  <path d="M95,113 C 90,90 120,72 165,57" fill="none" stroke="var(--text-dim)" stroke-width="1.8" marker-end="url(#f22)"/>
+  <text x="70" y="90" font-size="10" fill="var(--text-dim)">value</text>
+  <defs><marker id="f22" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+</svg>
+</Figura>
+
+```jsx
+function FormularioControlado() {
+  const [nombre, setNombre] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    alert(`Nombre: ${nombre}`);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <button type="submit">Enviar</button>
+    </form>
+  );
+}
+```
+
+## Componentes no controlados
+
+Un **componente no controlado** deja que el **DOM** maneje el valor. React solo lo **lee cuando lo necesita**, usando una **ref**:
+
+```jsx
+import { useRef } from 'react';
+
+function FormularioNoControlado() {
+  const inputRef = useRef(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    alert(`Nombre: ${inputRef.current.value}`); // se lee del DOM
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input ref={inputRef} />
+      <button type="submit">Enviar</button>
+    </form>
+  );
+}
+```
+
+### Controlado vs No controlado
+
+| Aspecto | Controlado | No controlado |
+|---|---|---|
+| Fuente de verdad | Estado de React | El DOM |
+| Acceso al valor | `value` + `onChange` | `ref.current.value` |
+| Validación | Sencilla y reactiva | Manual |
+| Sincronización | Siempre con el estado | Parcial |
+
+<Callout type="analogia" title="¿Quién es el dueño del input?">
+**Controlado:** React es el **dueño** — cada tecla pasa por el estado. **No controlado:** el **DOM** guarda el valor y React lo “espía” solo cuando hace falta.
+</Callout>
+
+<Callout type="tip" title="Recomendación de React">
+Usá **controlados por defecto**: son más predecibles, seguros y fáciles de validar. Dejá los **no controlados** para casos puntuales (formularios de terceros, performance extrema).
+</Callout>
+
+## onChange con múltiples campos
+
+Para un formulario con varios campos, un solo `handleChange` que usa `[e.target.name]` mantiene todo en un objeto de estado:
+
+```jsx
+function FormularioUsuario() {
+  const [form, setForm] = useState({ nombre: '', email: '' });
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  return (
+    <form>
+      <input name="nombre" value={form.nombre} onChange={handleChange} />
+      <input name="email" value={form.email} onChange={handleChange} />
+    </form>
+  );
+}
+```
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">onClick</div><div class="deflist__d">Se dispara al hacer clic (botones, enlaces). Ejecuta una acción.</div></div>
+<div class="deflist__row"><div class="deflist__t">onChange</div><div class="deflist__d">Se dispara al cambiar el valor de un input/select. Actualiza el estado.</div></div>
+<div class="deflist__row"><div class="deflist__t">[e.target.name]</div><div class="deflist__d">Clave computada: actualiza el campo del objeto que coincide con el <code>name</code> del input.</div></div>
+</div>
+
+<Callout type="parcial">
+- Padre→hijo por **props**; hijo→padre por **callback** (convención `onAlgo`).
+- **Context** comparte datos globales sin pasar props nivel por nivel.
+- Formularios: cuidar **accesibilidad**, **validación** y **serialización**.
+- **Controlado**: el `value` está atado al **estado** (`value` + `onChange`) → única fuente de verdad.
+- **No controlado**: el valor vive en el **DOM**, se lee con **`ref`**.
+- React recomienda **controlados** por defecto.
+- Varios campos: un `handleChange` con **`[e.target.name]`**.
+</Callout>

@@ -1,0 +1,38 @@
+// src/App.jsx
+import { useState } from 'react'
+import Contador from './components/Contador'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
+import './App.css'
+
+function App() {
+  const [ultimo, setUltimo] = useState({ nombre: '', valor: 0 })
+
+  function manejarActualizacion(nombre, valor) {
+    setUltimo({ nombre, valor })
+    document.title = `${nombre}: ${valor}`
+  }
+
+  return (
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Contadores Independientes</h1>
+
+      <Contador nombre="Contador A" onActualizacion={manejarActualizacion} />
+      <Contador nombre="Contador B" onActualizacion={manejarActualizacion} />
+
+      <p className="read-the-docs">
+        Última actualización: {ultimo.nombre} = {ultimo.valor}
+      </p>
+    </>
+  )
+}
+
+export default App

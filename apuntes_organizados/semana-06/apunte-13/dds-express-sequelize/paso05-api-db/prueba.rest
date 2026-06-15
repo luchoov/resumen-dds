@@ -1,0 +1,29 @@
+# Pruebas sobre endpoints de la API
+
+### Obtener la respuesta de la API en la ruta /
+GET http://localhost:3000/
+Accept: text/plain
+
+### Obtener la respuesta del endpoint `/health-check`
+GET http://localhost:3000/health-check
+Accept: application/json
+
+### Obtener la respuesta del endpoint `/echo` sin enviar ningún parámetro de querystring
+GET http://localhost:3000/echo
+Accept: application/json
+
+### Obtener la respuesta del endpoint `/echo` con el parámetro de querystring mensaje con valor 'Hola'
+GET http://localhost:3000/echo?mensaje=Hola
+Content-Type: application/json
+
+### Ruta inexistente
+GET http://localhost:3000/cualquier-cosa
+Accept: application/json
+
+### Obtener la respuesta del endpoint `/api/perfiles` que devuelve los perfiles ordenados alfabéticamente
+GET http://localhost:3000/api/perfiles
+Accept: application/json
+
+### Obtener la respuesta del endpoint `/api/perfiles/:id` que devuelve el perfil con el id especificado
+GET http://localhost:3000/api/perfiles/2
+Accept: application/json

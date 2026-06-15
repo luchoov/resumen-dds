@@ -1,0 +1,204 @@
+---
+numero: 17
+titulo: 'Seguridad web y OWASP'
+subtitulo: 'Las amenazas más críticas y cómo mitigarlas en un stack React + Express + Sequelize.'
+bloque: 'Calidad y Seguridad'
+semana: 'Semana 08'
+color: security
+icon: 'shield'
+resumen: 'OWASP publica el Top 10 de riesgos de seguridad web (y un Top 10 específico de APIs); la seguridad eficaz requiere defensas en todas las capas: frontend, backend, base de datos y configuración.'
+tags: ['OWASP', 'Injection', 'XSS', 'helmet', 'CORS']
+---
+
+## La seguridad es de todas las capas
+
+Internet es un lugar peligroso. La **seguridad web** busca proteger los sitios del acceso, uso, modificación o interrupción no autorizados. Y no se logra en un solo lugar: requiere esfuerzos en **todas las capas** — frontend (React), backend (Express), base de datos (Sequelize) y configuración del servidor.
+
+<Callout type="info" title="Nuestro stack = web app + API REST">
+React + Express construye, en esencia, una **API REST consumida por un SPA**. Por eso hay que pensar la seguridad desde dos marcos de OWASP: el **Top 10 general** y el **API Security Top 10**.
+</Callout>
+
+## ¿Qué es OWASP?
+
+El **Open Web Application Security Project** es una fundación sin fines de lucro que publica documentos de referencia sobre los riesgos de seguridad más críticos. Los dos que nos importan:
+
+<div class="conceptos">
+<article class="concepto"><div class="concepto__t">OWASP Top 10</div><div class="concepto__d">Riesgos de aplicaciones web en general.</div></article>
+<article class="concepto"><div class="concepto__t">API Security Top 10</div><div class="concepto__d">Riesgos específicos de APIs REST/GraphQL.</div></article>
+</div>
+
+## OWASP Top 10 (2025)
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">A01 · Broken Access Control</div><div class="deflist__d">Control de acceso roto. <strong>#1</strong>: el 100% de las apps testeadas tenía alguna forma. Acceder a recursos sin permiso.</div></div>
+<div class="deflist__row"><div class="deflist__t">A02 · Security Misconfiguration</div><div class="deflist__d">Configuración insegura: errores que filtran stack traces, faltan cabeceras, features por defecto activas.</div></div>
+<div class="deflist__row"><div class="deflist__t">A03 · Supply Chain Failures</div><div class="deflist__d">Fallas en la cadena de suministro (dependencias). Nueva categoría: SolarWinds, Log4Shell, gusanos npm.</div></div>
+<div class="deflist__row"><div class="deflist__t">A04 · Cryptographic Failures</div><div class="deflist__d">Criptografía mal usada: contraseñas en texto plano, hashes débiles (MD5), sin HTTPS.</div></div>
+<div class="deflist__row"><div class="deflist__t">A05 · Injection</div><div class="deflist__d">Inyección: datos del usuario que el intérprete ejecuta como comando (SQL, XSS, OS command…).</div></div>
+<div class="deflist__row"><div class="deflist__t">A06 · Insecure Design</div><div class="deflist__d">Diseño inseguro: falta de controles desde la arquitectura (sin threat modeling, sin límites de negocio).</div></div>
+<div class="deflist__row"><div class="deflist__t">A07 · Authentication Failures</div><div class="deflist__d">Fallas de autenticación (se profundiza en la Unidad 18).</div></div>
+<div class="deflist__row"><div class="deflist__t">A08 · Integrity Failures</div><div class="deflist__d">Integridad de software/datos: updates sin firmar, CI/CD inseguro, deserialización insegura.</div></div>
+<div class="deflist__row"><div class="deflist__t">A09 · Logging & Alerting Failures</div><div class="deflist__d">Sin logs ni alertas no se detectan ni responden los incidentes.</div></div>
+<div class="deflist__row"><div class="deflist__t">A10 · Mishandling Exceptions</div><div class="deflist__d">Manejo incorrecto de condiciones excepcionales (nueva categoría). Fallar en prevenir/detectar/responder.</div></div>
+</div>
+
+## Las amenazas en acción (con código)
+
+### A05 · Injection — SQL
+
+```sql
+-- Entrada maliciosa:  ' OR '1'='1
+SELECT * FROM users WHERE name = '' OR '1'='1';
+-- Devuelve TODOS los registros
+```
+
+La defensa: **consultas parametrizadas**. Sequelize lo hace **automáticamente**:
+
+```js
+// SEGURO: Sequelize parametriza solo
+const user = await Usuario.findOne({ where: { username: req.body.username } });
+
+// PELIGROSO: concatenar en una query raw
+await sequelize.query(`SELECT * FROM users WHERE name = '${req.body.name}'`);
+
+// SEGURO: query raw parametrizada
+await sequelize.query('SELECT * FROM users WHERE name = ?', {
+  replacements: [req.body.name],
+});
+```
+
+### A05 · Injection — XSS
+
+```jsx
+// SEGURO: React escapa automáticamente el contenido
+const Comentario = ({ texto }) => <p>{texto}</p>;
+// "<script>alert('xss')</script>" se muestra como texto plano
+
+// PELIGROSO: rompe el auto-escaping
+<div dangerouslySetInnerHTML={{ __html: contenidoDelUsuario }} />
+```
+
+<Callout type="danger" title="dangerouslySetInnerHTML">
+El nombre lo dice todo: **nunca** lo uses con datos del usuario. Es la puerta principal del XSS en React.
+</Callout>
+
+### A01 · Broken Access Control
+
+```js
+// MAL: no verifica que la cuenta sea del usuario logueado
+app.get('/api/cuentas/:id', authenticateToken, async (req, res) => {
+  const cuenta = await Cuenta.findByPk(req.params.id);
+  res.json(cuenta);
+});
+
+// BIEN: verifica ownership del recurso
+app.get('/api/cuentas/:id', authenticateToken, async (req, res) => {
+  const cuenta = await Cuenta.findOne({
+    where: { id: req.params.id, usuarioId: req.user.id },
+  });
+  if (!cuenta) return res.status(403).json({ message: 'Acceso denegado' });
+  res.json(cuenta);
+});
+```
+
+<Callout type="warn" title="Autenticado ≠ autorizado">
+Que el usuario esté **logueado** no significa que pueda ver **cualquier** recurso. Hay que verificar la **propiedad** (ownership) en cada endpoint, no sólo el token.
+</Callout>
+
+## Defensas clave para Express
+
+La idea es **defensa en profundidad**: varias capas independientes que una petición debe atravesar. Si una falla, la siguiente sigue protegiendo.
+
+<Figura caption="Defensa en profundidad: cada capa filtra la petición antes de llegar a los datos.">
+<svg viewBox="0 0 600 312" width="600" height="312" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <text x="300" y="18" font-size="11" fill="var(--text-dim)" text-anchor="middle" font-family="JetBrains Mono Variable, monospace">PETICIÓN ENTRANTE</text>
+  <line x1="300" y1="22" x2="300" y2="34" stroke="var(--text-dim)" stroke-width="1.4" marker-end="url(#sec17)"/>
+
+  <rect x="50" y="40" width="500" height="44" rx="6" fill="color-mix(in srgb, hsl(var(--c-security)) 12%, var(--surface))" stroke="color-mix(in srgb, hsl(var(--c-security)) 45%, var(--border))"/>
+  <text x="70" y="67" font-size="13" fill="var(--text)" font-weight="700">Transporte</text>
+  <text x="530" y="67" font-size="11" fill="var(--text-dim)" text-anchor="end" font-family="JetBrains Mono Variable, monospace">HTTPS · helmet</text>
+
+  <rect x="50" y="94" width="500" height="44" rx="6" fill="color-mix(in srgb, hsl(var(--c-express)) 12%, var(--surface))" stroke="color-mix(in srgb, hsl(var(--c-express)) 45%, var(--border))"/>
+  <text x="70" y="121" font-size="13" fill="var(--text)" font-weight="700">Acceso</text>
+  <text x="530" y="121" font-size="11" fill="var(--text-dim)" text-anchor="end" font-family="JetBrains Mono Variable, monospace">cors · express-rate-limit</text>
+
+  <rect x="50" y="148" width="500" height="44" rx="6" fill="color-mix(in srgb, hsl(var(--c-data)) 12%, var(--surface))" stroke="color-mix(in srgb, hsl(var(--c-data)) 45%, var(--border))"/>
+  <text x="70" y="175" font-size="13" fill="var(--text)" font-weight="700">Entrada</text>
+  <text x="530" y="175" font-size="11" fill="var(--text-dim)" text-anchor="end" font-family="JetBrains Mono Variable, monospace">express-validator</text>
+
+  <rect x="50" y="202" width="500" height="44" rx="6" fill="color-mix(in srgb, hsl(var(--c-react)) 12%, var(--surface))" stroke="color-mix(in srgb, hsl(var(--c-react)) 45%, var(--border))"/>
+  <text x="70" y="229" font-size="13" fill="var(--text)" font-weight="700">Identidad</text>
+  <text x="530" y="229" font-size="11" fill="var(--text-dim)" text-anchor="end" font-family="JetBrains Mono Variable, monospace">JWT · roles · ownership</text>
+
+  <rect x="50" y="256" width="500" height="44" rx="6" fill="color-mix(in srgb, hsl(var(--c-testing)) 12%, var(--surface))" stroke="color-mix(in srgb, hsl(var(--c-testing)) 45%, var(--border))"/>
+  <text x="70" y="283" font-size="13" fill="var(--text)" font-weight="700">Datos</text>
+  <text x="530" y="283" font-size="11" fill="var(--text-dim)" text-anchor="end" font-family="JetBrains Mono Variable, monospace">Sequelize (parametrizado)</text>
+
+  <defs><marker id="sec17" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--text-dim)"/></marker></defs>
+</svg>
+</Figura>
+
+```js
+import helmet from 'helmet';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+
+app.use(helmet());                 // ~15 cabeceras de seguridad de una
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
+app.post('/api/login', loginLimiter, loginController);
+```
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">helmet</div><div class="deflist__d">Configura cabeceras: CSP, HSTS, X-Frame-Options, X-Content-Type-Options… (también frena clickjacking).</div></div>
+<div class="deflist__row"><div class="deflist__t">cors</div><div class="deflist__d">Restringe qué orígenes pueden consumir la API.</div></div>
+<div class="deflist__row"><div class="deflist__t">express-rate-limit</div><div class="deflist__d">Limita peticiones para frenar fuerza bruta y DoS.</div></div>
+<div class="deflist__row"><div class="deflist__t">express-validator</div><div class="deflist__d">Valida y sanitiza la entrada del usuario.</div></div>
+</div>
+
+## API Security Top 10: lo destacado
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">API1 · BOLA</div><div class="deflist__d">Broken Object Level Authorization: acceder a objetos de otros por ID predecible. (≈ A01)</div></div>
+<div class="deflist__row"><div class="deflist__t">API3 · Property Level</div><div class="deflist__d">Exposición excesiva de datos + <strong>Mass Assignment</strong>.</div></div>
+<div class="deflist__row"><div class="deflist__t">API4 · Resource Consumption</div><div class="deflist__d">Sin rate limiting → DoS y costos. Se mitiga con <code>express-rate-limit</code>.</div></div>
+<div class="deflist__row"><div class="deflist__t">API7 · SSRF</div><div class="deflist__d">El usuario controla una URL que el server consulta. Validar con lista blanca.</div></div>
+</div>
+
+### Mass Assignment y exposición de datos
+
+```js
+// VULNERABLE: pasa todo el body al modelo
+const articulo = await Articulo.create(req.body);
+// el atacante manda { ..., usuarioId: 999, role: "admin" }
+
+// SEGURO: whitelist de campos
+const { titulo, precio, stock } = req.body;
+const articulo = await Articulo.create({ titulo, precio, stock, usuarioId: req.user.id });
+```
+
+```js
+// Nunca devuelvas campos sensibles: seleccioná solo lo público
+const usuario = await Usuario.findByPk(req.params.id, {
+  attributes: ['id', 'username', 'email'], // sin password, role, etc.
+});
+```
+
+## Otras amenazas y el frontend
+
+<div class="conceptos">
+<article class="concepto"><div class="concepto__t">CSRF</div><div class="concepto__d">Acciones con las credenciales de otro. Mitiga <code>SameSite=Strict</code> + token Bearer.</div></article>
+<article class="concepto"><div class="concepto__t">Clickjacking</div><div class="concepto__d">Sitio legítimo en un iframe invisible. Lo frena <code>helmet</code> (X-Frame-Options).</div></article>
+<article class="concepto"><div class="concepto__t">DoS</div><div class="concepto__d">Inundar el server de peticiones. Rate limiting.</div></article>
+<article class="concepto"><div class="concepto__t">Secretos en el bundle</div><div class="concepto__d">Solo variables <code>VITE_</code> van al cliente — y son <strong>visibles</strong>. Nunca pongas claves ahí.</div></article>
+</div>
+
+<Callout type="parcial">
+- **OWASP** publica el **Top 10** web y el **API Security Top 10**.
+- **A01 Broken Access Control** es el #1: verificar **ownership**, no solo autenticación.
+- **A05 Injection** (SQL, XSS): parametrizar (Sequelize lo hace) y nunca usar `dangerouslySetInnerHTML` con datos del usuario.
+- Defensas Express: **helmet** (cabeceras), **cors** (orígenes), **express-rate-limit** (fuerza bruta), **express-validator** (entrada).
+- **Mass Assignment** → usar **whitelist** de campos; nunca devolver `password` (usar `attributes`).
+- React **auto-escapa** el JSX; las variables `VITE_` son **públicas**.
+</Callout>

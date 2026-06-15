@@ -1,0 +1,221 @@
+---
+numero: 18
+titulo: 'Autenticación y autorización'
+subtitulo: 'Verificar quién sos (auth) y qué podés hacer (authz) con hash de contraseñas, JWT y OAuth.'
+bloque: 'Calidad y Seguridad'
+semana: 'Semana 08'
+color: security
+icon: 'lock'
+resumen: 'Autenticación verifica la identidad y autorización los permisos; las contraseñas se guardan hasheadas (bcrypt) y la sesión se maneja con JWT (access token corto + refresh token en cookie httpOnly).'
+tags: ['JWT', 'bcrypt', 'Refresh token', 'OAuth', 'Roles']
+---
+
+## Autenticación vs Autorización
+
+Dos conceptos que suenan parecido pero son distintos:
+
+<div class="proscons">
+<div class="proscons__col pro"><p class="proscons__h">Autenticación (authn)</p><ul><li>¿Quién sos? Verifica tu <strong>identidad</strong>.</li><li>Login con usuario y contraseña, biometría, etc.</li></ul></div>
+<div class="proscons__col con"><p class="proscons__h">Autorización (authz)</p><ul><li>¿Qué podés hacer? Verifica tus <strong>permisos</strong>.</li><li>Roles: un “vendedor” no administra usuarios.</li></ul></div>
+</div>
+
+La autenticación se basa en uno o más **factores**:
+
+<div class="conceptos cols-3">
+<article class="concepto"><div class="concepto__t">Algo que sabés</div><div class="concepto__d">Contraseña, PIN.</div></article>
+<article class="concepto"><div class="concepto__t">Algo que tenés</div><div class="concepto__d">Teléfono (OTP/SMS), token físico.</div></article>
+<article class="concepto"><div class="concepto__t">Algo que sos</div><div class="concepto__d">Huella, rostro.</div></article>
+</div>
+
+<Callout type="info" title="Métodos modernos">
+Más allá de usuario/contraseña, existen **MFA** (multifactor), **passwordless** (magic link al mail), **OAuth** (login social) y **passkeys** (estándar WebAuthn/FIDO2, el futuro sin contraseñas).
+</Callout>
+
+## Hash de contraseñas con bcrypt
+
+**Regla de oro: la contraseña NUNCA se guarda en texto plano** (ni con hashes débiles como MD5/SHA-1). Se usa **bcrypt**, que incluye **salt** automático y un **factor de costo** que lo hace deliberadamente lento (resistente a fuerza bruta).
+
+```js
+import bcrypt from 'bcryptjs';
+
+// Al registrar: hashear antes de guardar
+const salt = await bcrypt.genSalt(12);          // costo 12 (recomendado)
+const hashedPassword = await bcrypt.hash(password, salt);
+
+// Al hacer login: comparar contra el hash guardado
+const esValida = await bcrypt.compare(passwordIngresada, usuario.password);
+```
+
+<Callout type="tip" title="bcrypt vs Argon2">
+OWASP recomienda **Argon2id** como primera opción (resistente a GPU/ASIC). Para el curso, **bcrypt** alcanza y es más simple.
+</Callout>
+
+## JWT — JSON Web Token
+
+Un **JWT** es un estándar (RFC 7519) para transmitir información de forma segura como un objeto JSON **firmado digitalmente**. Es lo que usamos para autenticación en APIs REST. Consta de **tres partes** separadas por puntos:
+
+<Figura caption="Estructura de un JWT: header.payload.signature.">
+<svg viewBox="0 0 640 170" width="640" height="170" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono Variable, monospace">
+  <rect x="15" y="45" width="180" height="50" rx="10" fill="color-mix(in srgb, hsl(var(--c-security)) 14%, var(--surface))" stroke="hsl(var(--c-security))"/>
+  <text x="105" y="68" font-size="13" fill="hsl(var(--c-security))" text-anchor="middle" font-weight="700">HEADER</text>
+  <text x="105" y="86" font-size="10" fill="var(--text-dim)" text-anchor="middle">algoritmo + tipo</text>
+
+  <rect x="230" y="45" width="180" height="50" rx="10" fill="color-mix(in srgb, hsl(var(--c-router)) 14%, var(--surface))" stroke="hsl(var(--c-router))"/>
+  <text x="320" y="68" font-size="13" fill="hsl(var(--c-router))" text-anchor="middle" font-weight="700">PAYLOAD</text>
+  <text x="320" y="86" font-size="10" fill="var(--text-dim)" text-anchor="middle">datos (claims)</text>
+
+  <rect x="445" y="45" width="180" height="50" rx="10" fill="color-mix(in srgb, hsl(var(--c-data)) 14%, var(--surface))" stroke="hsl(var(--c-data))"/>
+  <text x="535" y="68" font-size="13" fill="hsl(var(--c-data))" text-anchor="middle" font-weight="700">SIGNATURE</text>
+  <text x="535" y="86" font-size="10" fill="var(--text-dim)" text-anchor="middle">firma digital</text>
+
+  <text x="212" y="78" font-size="22" fill="var(--text-dim)" text-anchor="middle">.</text>
+  <text x="427" y="78" font-size="22" fill="var(--text-dim)" text-anchor="middle">.</text>
+
+  <text x="320" y="130" font-size="11" fill="var(--text)" text-anchor="middle">eyJhbGci…  .  eyJ1c2Vy…  .  firma</text>
+  <text x="320" y="150" font-size="10" fill="var(--text-dim)" text-anchor="middle">El payload es legible (Base64), NO encriptado → no pongas datos sensibles.</text>
+</svg>
+</Figura>
+
+<Callout type="warn" title="El payload se puede leer">
+El JWT está **firmado**, no encriptado. Cualquiera puede decodificar el payload (Base64). Por eso **nunca** metas contraseñas ni datos sensibles ahí: la firma garantiza que no fue **modificado**, no que sea secreto.
+</Callout>
+
+## Access token + Refresh token
+
+El patrón estándar usa **dos** tokens:
+
+<div class="proscons">
+<div class="proscons__col pro"><p class="proscons__h">Access token (~15 min)</p><ul><li>Se manda en cada petición a la API.</li><li>Corta vida → si lo roban, el daño es limitado.</li><li>Va en la cabecera <code>Authorization: Bearer …</code></li></ul></div>
+<div class="proscons__col con"><p class="proscons__h">Refresh token (~7 días)</p><ul><li>Solo sirve para pedir un nuevo access token.</li><li>Se guarda en cookie <code>httpOnly</code>.</li><li>Inaccesible desde JavaScript → más seguro.</li></ul></div>
+</div>
+
+<Callout type="danger" title="¿Por qué NO usar localStorage para tokens?">
+`localStorage` es accesible desde **cualquier** script de la página. Con una sola vulnerabilidad XSS, el atacante lee el token. Las cookies **`httpOnly`** no son accesibles desde JS, por eso son más seguras para el refresh token.
+</Callout>
+
+## Implementación en Express
+
+### Login (genera ambos tokens)
+
+```js
+import jwt from 'jsonwebtoken';
+
+app.post('/api/login', async (req, res) => {
+  const usuario = await Usuario.findOne({ where: { username: req.body.username } });
+  if (!usuario) return res.status(401).json({ message: 'Credenciales inválidas' });
+
+  const ok = await bcrypt.compare(req.body.password, usuario.password);
+  if (!ok) return res.status(401).json({ message: 'Credenciales inválidas' });
+
+  const accessToken = jwt.sign(
+    { id: usuario.id, username: usuario.username, role: usuario.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+  const refreshToken = jwt.sign({ id: usuario.id }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: '7d',
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true, secure: true, sameSite: 'Strict',
+  });
+  res.json({ accessToken });
+});
+```
+
+### Middleware de autenticación (reutilizable)
+
+```js
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1]; // "Bearer <token>"
+  if (!token) return res.status(401).json({ message: 'Token no proporcionado' });
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ message: 'Token inválido o expirado' });
+    req.user = decoded; // { id, username, role }
+    next();
+  });
+}
+```
+
+### Middleware de autorización por roles
+
+```js
+function authorizeRole(...rolesPermitidos) {
+  return (req, res, next) => {
+    if (!rolesPermitidos.includes(req.user.role)) {
+      return res.status(403).json({ message: 'No tenés permisos' });
+    }
+    next();
+  };
+}
+
+// Combinados: autenticar primero, autorizar después
+app.delete('/api/articulos/:id',
+  authenticateToken,
+  authorizeRole('admin'),
+  articulosController.delete
+);
+```
+
+<Callout type="tip" title="401 vs 403">
+**401 Unauthorized** = no sé quién sos (falta o falla el token → autenticación). **403 Forbidden** = sé quién sos pero no podés (te falta el permiso → autorización).
+</Callout>
+
+## El flujo completo
+
+<Figura caption="Login → uso del access token → refresh al expirar → logout.">
+<svg viewBox="0 0 620 240" width="620" height="240" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="30" y="20" width="150" height="44" rx="10" fill="var(--surface-2)" stroke="hsl(var(--c-react))"/>
+  <text x="105" y="47" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">React (SPA)</text>
+  <rect x="440" y="20" width="150" height="44" rx="10" fill="var(--surface-2)" stroke="hsl(var(--c-express))"/>
+  <text x="515" y="47" font-size="13" fill="var(--text)" text-anchor="middle" font-weight="700">Express (API)</text>
+  <line x1="105" y1="64" x2="105" y2="225" stroke="var(--border)" stroke-width="1.5"/>
+  <line x1="515" y1="64" x2="515" y2="225" stroke="var(--border)" stroke-width="1.5"/>
+
+  <line x1="105" y1="90" x2="513" y2="90" stroke="hsl(var(--c-express))" stroke-width="1.8" marker-end="url(#j18)"/>
+  <text x="300" y="84" font-size="11" fill="var(--text-soft)" text-anchor="middle">1. POST /login (user, pass)</text>
+  <line x1="515" y1="120" x2="107" y2="120" stroke="hsl(var(--c-data))" stroke-width="1.8" marker-end="url(#j18b)"/>
+  <text x="305" y="114" font-size="11" fill="var(--text-soft)" text-anchor="middle">2. accessToken + cookie refresh</text>
+  <line x1="105" y1="150" x2="513" y2="150" stroke="hsl(var(--c-express))" stroke-width="1.8" marker-end="url(#j18)"/>
+  <text x="300" y="144" font-size="11" fill="var(--text-soft)" text-anchor="middle">3. GET /datos · Bearer token</text>
+  <line x1="105" y1="180" x2="513" y2="180" stroke="hsl(var(--c-router))" stroke-width="1.8" marker-end="url(#j18c)"/>
+  <text x="300" y="174" font-size="11" fill="var(--text-soft)" text-anchor="middle">4. POST /refresh (al expirar)</text>
+  <line x1="105" y1="210" x2="513" y2="210" stroke="hsl(var(--c-security))" stroke-width="1.8" marker-end="url(#j18d)"/>
+  <text x="300" y="204" font-size="11" fill="var(--text-soft)" text-anchor="middle">5. POST /logout → clearCookie</text>
+
+  <defs>
+    <marker id="j18" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-express))"/></marker>
+    <marker id="j18b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-data))"/></marker>
+    <marker id="j18c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-router))"/></marker>
+    <marker id="j18d" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="hsl(var(--c-security))"/></marker>
+  </defs>
+</svg>
+</Figura>
+
+## OAuth 2.0
+
+**OAuth 2.0** es un protocolo de **autorización** que permite que una app acceda a recursos del usuario en **otro servicio**, sin que el usuario comparta su contraseña.
+
+<Callout type="analogia" title="“Iniciar sesión con Google”">
+Nuestra app **nunca** recibe la contraseña de Google del usuario. Google nos da un **token** que autoriza acceder a ciertos datos (nombre, email, foto). Es como dejar tu auto con un **valet key**: abre el auto, pero no el baúl ni la guantera.
+</Callout>
+
+<ol class="pasos">
+<li>El usuario hace clic en “Iniciar sesión con Google”.</li>
+<li>Se redirige al servidor de Google (Authorization Server).</li>
+<li>El usuario autoriza a nuestra app.</li>
+<li>Google nos devuelve un <strong>código de autorización</strong>.</li>
+<li>Nuestro backend lo cambia por un <strong>access token</strong> con Google.</li>
+<li>Con ese token, obtenemos los datos del usuario.</li>
+</ol>
+
+<Callout type="parcial">
+- **Autenticación** = quién sos · **Autorización** = qué podés hacer.
+- Contraseñas: **siempre hasheadas** con **bcrypt** (salt + factor de costo).
+- **JWT** = `header.payload.signature`, firmado (no encriptado) → payload legible, sin datos sensibles.
+- **Access token** corto (Bearer en cabecera) + **refresh token** en cookie **httpOnly** (no en localStorage).
+- Middlewares: `authenticateToken` (¿token válido? → 401) + `authorizeRole` (¿permiso? → 403).
+- **OAuth 2.0** = login delegado a un tercero (Google) sin compartir la contraseña.
+</Callout>
