@@ -25,8 +25,24 @@ function MiComponente() {
 }
 ```
 
+Hay **dos sintaxis** equivalentes:
+
+```jsx
+// 1. Forma larga (explícita)
+<React.Fragment>
+  <h1>Título</h1>
+  <p>Contenido</p>
+</React.Fragment>
+
+// 2. Forma corta (la más usada)
+<>
+  <h1>Título</h1>
+  <p>Contenido</p>
+</>
+```
+
 <Callout type="tip" title="¿Por qué importa?">
-Evita `<div>` innecesarios que pueden romper layouts (flex, grid) o estilos. La sintaxis corta `<>…</>` es la más usada.
+Cumple la regla del **único elemento raíz** sin agregar un `<div>` extra al DOM (que puede romper layouts de flex/grid). Un Fragment **no aparece** en el DOM: es un contenedor virtual. Verificalo con las DevTools.
 </Callout>
 
 ## ¿Qué son los Hooks?
@@ -75,7 +91,11 @@ function Contador() {
 </div>
 
 <Callout type="info" title="Es desestructuración de arrays">
-`useState` devuelve un **array de 2 elementos**. Los nombres `count`/`setCount` los elegís vos; podés actualizar usando el valor previo: `setCount(prev => prev + 1)`.
+`useState` devuelve un **array de 2 elementos** (la sintaxis `const [count, setCount] = …` es **desestructuración de arrays de JavaScript**, no algo propio de React). Los nombres `count`/`setCount` los elegís vos; podés actualizar usando el valor previo: `setCount(prev => prev + 1)`.
+</Callout>
+
+<Callout type="danger" title="¿Por qué no funciona count++?">
+`count++` **muta** la variable directamente: no pasa por el setter, así que **React no se entera** y **no hay re-render** (la pantalla no cambia). Además `count` es `const`. El setter hace **dos cosas**: guarda el nuevo valor *y* programa el re-render. Por eso siempre `setCount(count + 1)`.
 </Callout>
 
 Lo clave es el **ciclo**: un evento llama al `setter`, React actualiza el estado y **vuelve a renderizar** el componente con el nuevo valor.
@@ -279,6 +299,103 @@ function ThemedButton() {
 <Callout type="warn" title="Usar con moderación">
 Context es ideal para datos verdaderamente **globales**. Abusar de él dificulta la **reutilización** de componentes (quedan atados a un contexto). Para pasar datos entre pocos niveles, mejor props.
 </Callout>
+
+## Autoevaluación
+
+<p class="muted">Preguntas del estilo del Parcial 2. Respondé mentalmente (o en papel) y recién después abrí la respuesta.</p>
+
+<details class="qa">
+<summary>¿Qué problema resuelve un Fragment? Escribí sus dos sintaxis. V o F: agrega un <code>&lt;div&gt;</code> al DOM.</summary>
+<div class="qa__a">
+
+Resuelve la regla del **único elemento raíz** por componente, **sin** agregar un `<div>` extra. Sintaxis: `<React.Fragment>…</React.Fragment>` y la corta `<>…</>`.
+
+**F**: un Fragment **no** agrega ningún nodo al DOM; es un contenedor virtual (puede incluso reducir nodos innecesarios).
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Qué devuelve <code>useState(0)</code>? ¿Funciona reemplazar <code>setCount(count + 1)</code> por <code>count++</code>?</summary>
+<div class="qa__a">
+
+Devuelve un **array de 2 elementos**: `[valor, función actualizadora]`. La sintaxis `const [count, setCount] = …` es **desestructuración de arrays de JS**.
+
+**No** funciona `count++`: muta la variable sin pasar por el setter, así que **React no se entera y no re-renderiza** (la pantalla queda igual). El setter hace dos cosas: actualiza el valor *y* dispara el re-render.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Enunciá 2 reglas de los hooks y explicá por qué un hook dentro de un <code>if</code> está mal.</summary>
+<div class="qa__a">
+
+Reglas: **(1)** solo se llaman desde componentes funcionales u otros hooks; **(2)** solo en el **nivel superior**, nunca dentro de `if`, bucles o funciones anidadas.
+
+Está mal porque React identifica cada estado **por el orden de llamada** (no conoce los nombres de tus variables). Un hook condicional cambia ese orden entre renders y React asocia mal cada valor a su `useState`.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Asociá las 4 variantes de <code>useEffect</code> con cuándo corren, y escribí un efecto que llame <code>cargarDatos()</code> solo al montar.</summary>
+<div class="qa__a">
+
+- `useEffect(fn, [])` → **solo al montar** (≈ `componentDidMount`).
+- `useEffect(fn)` → en **cada render** (≈ `componentDidUpdate`).
+- `useEffect(fn, [empresa])` → cuando **cambia `empresa`**.
+- `useEffect(() => { return () => {…} }, [])` → **limpieza** antes de desmontar (≈ `componentWillUnmount`).
+
+```jsx
+useEffect(() => {
+  cargarDatos();
+}, []);
+```
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Con <code>{'{unreadMessages.length > 0 && <h2>…</h2>}'}</code>: ¿qué se ve con un array vacío? ¿Y si sacaras el <code>&gt; 0</code>?</summary>
+<div class="qa__a">
+
+Con `> 0` y array vacío: la condición es `false` y **no se renderiza nada** (con elementos, muestra el `<h2>`).
+
+Sin el `> 0`: `[].length` es `0`. El operador `&&` devuelve **el primer operando falsy**, o sea `0` — y React **imprime el `0`** en pantalla (porque `0` no se omite como sí se omiten `false`/`null`). Por eso conviene comparar `length > 0`. Con ternario: `{cond ? <h2>…</h2> : <h2>No new messages.</h2>}`.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Para qué sirve la <code>key</code> en una lista? ¿Qué riesgo tiene usar el índice del <code>map</code>?</summary>
+<div class="qa__a">
+
+La `key` le da **identidad** a cada elemento durante la **reconciliación**: React sabe cuál insertar, borrar o reordenar sin recrear todo. Conviene que venga de un **ID estable** (de la base), único entre hermanos.
+
+Usar el **índice** es riesgoso si la lista se reordena o se inserta/borra en el medio: el índice de un elemento cambia, React cree que es "otro" elemento y puede mostrar datos o estado equivocados.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Dos <code>&lt;MyButton/&gt;</code> con su propio <code>useState</code>: 3 clics en uno, ¿qué muestra el otro? ¿Cómo los hago compartir el contador?</summary>
+<div class="qa__a">
+
+Cada botón tiene su **estado propio**, así que son independientes: el primero muestra 3 y el segundo sigue en 0.
+
+La técnica es **Lifting State Up**: se mueve el estado al **ancestro común** (`MyApp`), que pasa `count` y un callback por props a ambos botones. Así el padre es la **única fuente de verdad** y los dos se actualizan juntos.
+
+```jsx
+function MyApp() {
+  const [count, setCount] = useState(0);
+  const onClick = () => setCount(count + 1);
+  return <><MyButton count={count} onClick={onClick} /><MyButton count={count} onClick={onClick} /></>;
+}
+function MyButton({ count, onClick }) { /* … */ }
+```
+
+</div>
+</details>
 
 <Callout type="parcial">
 - **Fragment** (`<>…</>`) agrupa hijos sin meter un `<div>` extra.

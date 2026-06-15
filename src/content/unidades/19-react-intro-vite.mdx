@@ -12,10 +12,10 @@ tags: ['JSX', 'Virtual DOM', 'Vite', 'Componentes', 'props']
 
 ## ¿Qué es React?
 
-**React** es una **librería** de JavaScript para construir **interfaces de usuario**, creada por Facebook en 2013.
+**React** es una **librería** de JavaScript para construir **interfaces de usuario**, creada por **Facebook en 2013**. Su ecosistema incluye **React Native**, que con los mismos conceptos permite construir apps **móviles** (iOS/Android).
 
 <Callout type="warn" title="Librería, no framework">
-A diferencia de Angular, React **no impone** estructura de proyecto ni convenciones. Por eso es una **librería**: te da las piezas para construir la UI, y vos decidís el resto.
+La pregunta de fondo es **quién manda sobre la estructura del proyecto**: en un *framework* (como **Angular**) manda la herramienta, que impone estructura, convenciones e invoca tu código; en una *librería* mandás vos. React **no impone** nada: te da las piezas para la UI y vos decidís el resto. Por eso es una **librería**, no un framework.
 </Callout>
 
 ### Sus 3 características centrales
@@ -49,7 +49,7 @@ const header = (
 ```
 
 <div class="deflist">
-<div class="deflist__row"><div class="deflist__t">{ }</div><div class="deflist__d">Las llaves “escapan” de JSX hacia JavaScript: meten variables y expresiones.</div></div>
+<div class="deflist__row"><div class="deflist__t">{'{ }'}</div><div class="deflist__d">Las llaves “escapan” de JSX hacia JavaScript: meten variables y expresiones.</div></div>
 <div class="deflist__row"><div class="deflist__t">className</div><div class="deflist__d">En JSX se usa <code>className</code> en vez de <code>class</code> (es palabra reservada de JS).</div></div>
 <div class="deflist__row"><div class="deflist__t">cerrar tags</div><div class="deflist__d">JSX es más estricto que HTML: hasta <code>&lt;br /&gt;</code> debe cerrarse.</div></div>
 <div class="deflist__row"><div class="deflist__t">un solo raíz</div><div class="deflist__d">Debe haber un único elemento raíz (o un Fragment <code>&lt;&gt;…&lt;/&gt;</code>).</div></div>
@@ -75,6 +75,10 @@ El navegador no entiende JSX. **Babel** lo **transpila** a llamadas `React.creat
 
 <Callout type="tip" title="Vite hace esto por vos">
 Con **Vite** no configurás Babel a mano: transpila el JSX automáticamente (vía esbuild) cada vez que guardás. Por eso podés escribir JSX libremente.
+</Callout>
+
+<Callout type="info" title="¿JSX es obligatorio?">
+**No.** Como JSX es solo azúcar para `React.createElement`, podrías escribir esas llamadas a mano y React funcionaría igual — pero nadie lo hace porque JSX es mucho más legible. El **segundo argumento** de `createElement` son las **props** del elemento (`null` cuando no hay): `React.createElement('h1', null, 'Hola Mundo')`.
 </Callout>
 
 ## El Virtual DOM por dentro
@@ -229,12 +233,111 @@ function MiComp({ nombre, edad }) {
 </div>
 
 ```jsx
+import './estilos.css'; // CSS externo: import al inicio del componente
+
 // className + clase condicional
 <div className={isActive ? 'active-class' : 'inactive-class'}>…</div>
 
 // Estilo en línea: objeto con camelCase
 <div style={{ backgroundColor: 'red', fontSize: '16px' }}>…</div>
 ```
+
+<div class="deflist">
+<div class="deflist__row"><div class="deflist__t">llave externa</div><div class="deflist__d">Escapa de JSX hacia JavaScript (como cualquier <code>{'{…}'}</code>).</div></div>
+<div class="deflist__row"><div class="deflist__t">llave interna</div><div class="deflist__d">Es un <strong>objeto literal</strong> JS con los estilos. Por eso hay <strong>dos pares</strong>: <code>{'{ }'}</code> (escape) + <code>{'{ objeto }'}</code>.</div></div>
+<div class="deflist__row"><div class="deflist__t">camelCase</div><div class="deflist__d"><code>backgroundColor</code> y no <code>background-color</code>: las claves son identificadores JS, y el guion se leería como una resta.</div></div>
+<div class="deflist__row"><div class="deflist__t">import CSS</div><div class="deflist__d">Un <code>.css</code> externo se trae con <code>import './estilos.css'</code> y se aplica con <code>className</code>.</div></div>
+</div>
+
+## Autoevaluación
+
+<p class="muted">Preguntas del estilo del Parcial 2. Respondé mentalmente (o en papel) y recién después abrí la respuesta.</p>
+
+<details class="qa">
+<summary>¿React es una librería o un framework? Justificá con un criterio técnico, y nombrá sus 3 características.</summary>
+<div class="qa__a">
+
+Es una **librería**. Criterio: **quién controla la estructura del proyecto**. Un framework (Angular) impone estructura y convenciones e *invoca tu código*; una librería te da piezas y *vos* las orquestás. React solo resuelve la UI.
+
+Sus 3 características: **declarativo** (describís el estado, React actualiza la UI), **basado en componentes** (piezas reutilizables) y **Virtual DOM** (aplica solo los cambios mínimos al DOM real).
+
+</div>
+</details>
+
+<details class="qa">
+<summary>V o F: React lo creó Facebook · React impone convenciones de proyecto · React Native hace apps móviles · Angular es una librería igual que React.</summary>
+<div class="qa__a">
+
+- **V** — lo creó Facebook (2013).
+- **F** — *no* impone convenciones (por eso es librería).
+- **V** — React Native construye apps móviles con los mismos conceptos.
+- **F** — Angular es un **framework**, no una librería.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Qué es JSX, es obligatorio, y qué función cumplen las llaves <code>{'{ }'}</code>?</summary>
+<div class="qa__a">
+
+JSX es una **extensión de sintaxis** que mezcla marcado (HTML) con JavaScript. **No es obligatorio**: es azúcar para `React.createElement`, que podrías escribir a mano. Las **llaves** "escapan" de JSX hacia JavaScript: incrustan variables y expresiones (`<h1>{titulo}</h1>`).
+
+</div>
+</details>
+
+<details class="qa">
+<summary>El navegador no entiende JSX: ¿cómo se llama el proceso que lo transforma y qué herramienta lo hace? Completá <code>const m = &lt;h1&gt;Hola&lt;/h1&gt;</code>.</summary>
+<div class="qa__a">
+
+El proceso es la **transpilación**, y la hace **Babel** (en Vite, vía esbuild, **automáticamente** — no lo configurás a mano). Se traduce a:
+
+```js
+const m = React.createElement('h1', null, 'Hola');
+```
+
+El 2.º argumento (`null`) son las **props**. Una limitación que se explica por esto: `class` se escribe `className` (es palabra reservada de JS) y los tags deben cerrarse (`<br />`).
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Qué es el Virtual DOM, cuáles son los 3 pasos al actualizar, y al hacer clic en un contador qué toca del DOM real?</summary>
+<div class="qa__a">
+
+El **DOM** es la representación real de la página en el navegador (cara de modificar). El **Virtual DOM** es una copia liviana en memoria. Los 3 pasos: **1)** genera el nuevo VDOM, **2)** lo compara con el anterior (**diffing / reconciliación**), **3)** aplica al DOM real **solo el cambio mínimo**.
+
+En el contador, React cambia **solo el texto del `<h1>`**. El `<button>` **no** se vuelve a crear: el diffing detecta que no cambió.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Completá los comandos para crear y correr un proyecto con Vite, y dá una razón para usar Vite en lugar de create-react-app.</summary>
+<div class="qa__a">
+
+```bash
+npm create vite@latest
+npm install
+npm run dev
+```
+
+Razón: Vite tiene **arranque instantáneo** y **HMR ultra rápido** (usa esbuild en vez de Webpack), con configuración mínima. Cadena de carga: `index.html` (tiene el `<div id="root">`) → `main.jsx` (crea el root y renderiza `<App />`) → `App.jsx` (componente raíz); `package.json` lista dependencias y scripts.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Encontrá los 3 errores: <code>{'<h2 class="t">Perfil</h2> <p>DDS<br></p>'}</code> dentro de un mismo <code>return</code>.</summary>
+<div class="qa__a">
+
+1. **`class` → `className`** (`class` es palabra reservada de JS).
+2. **Dos elementos hermanos sin raíz única** → envolver en un Fragment `<>…</>` o un `<div>`.
+3. **`<br>` sin cerrar → `<br />`** (JSX exige cerrar todos los tags).
+
+Causa raíz común: **JSX no es HTML, es JavaScript** que se transpila a `createElement`.
+
+</div>
+</details>
 
 <Callout type="parcial">
 - React = **librería** (no framework) **declarativa** y basada en **componentes**.

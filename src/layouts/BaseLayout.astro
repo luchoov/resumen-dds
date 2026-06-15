@@ -97,6 +97,14 @@ const bloqueIcon: Record<string, string> = {
         >
           <Icon name="diamond" size={13} /> Portada
         </a>
+        <a
+          href="/banco/"
+          class="drawer__home"
+          data-accent="react"
+          aria-current={current === 'banco' ? 'page' : undefined}
+        >
+          <Icon name="parcial" size={13} /> Banco de preguntas
+        </a>
         {
           bloques.map((b) => (
             <>

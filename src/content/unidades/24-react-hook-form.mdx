@@ -176,6 +176,10 @@ Una **regex** es un patrón de búsqueda. Los **metacaracteres** más comunes:
 /^[A-Za-z0-9]+$/      → solo letras y números, sin espacios ni símbolos
 ```
 
+<Callout type="danger" title="Validar en el front NO alcanza">
+Las reglas de RHF corren en el **navegador**, donde son fáciles de saltear: cualquiera puede pegarle a tu API directo con **Postman**, `curl` o devtools, **sin pasar por tu formulario**. La validación del front mejora la **experiencia** (feedback inmediato), pero la seguridad real exige **validar también en el back-end**. Regla de oro: *nunca confíes en datos que vienen del cliente* (ver Apunte 17).
+</Callout>
+
 ## formState: el pulso del formulario
 
 `formState` informa el estado actual del formulario para reaccionar a las interacciones del usuario:
@@ -200,6 +204,68 @@ const { isValid, isSubmitting, errors } = formState;
 <Callout type="tip" title="Mejor experiencia de usuario">
 Con `formState` podés **deshabilitar** el botón mientras se envía (`isSubmitting`), evitar enviar si el form es inválido (`isValid`) y mostrar errores solo después de que el usuario interactuó. Todo sin escribir lógica de estado a mano.
 </Callout>
+
+## Autoevaluación
+
+<p class="muted">Preguntas del estilo del Parcial 2. Respondé mentalmente (o en papel) y recién después abrí la respuesta.</p>
+
+<details class="qa">
+<summary>¿Qué problema resuelve RHF? Asociá <code>useForm</code>, <code>register</code>, <code>handleSubmit</code>, <code>formState.errors</code>. ¿Qué hacen los <code>...</code> en <code>{'{...register(...)}'}</code>?</summary>
+<div class="qa__a">
+
+Evita el formulario controlado **campo por campo con `useState`**: menos código repetido y **menos re-renders** (mejor performance), con validación y errores integrados.
+
+- **`useForm`** → hook principal, inicializa la lógica y devuelve todo.
+- **`register`** → registra un campo y define sus reglas de validación.
+- **`handleSubmit`** → maneja el envío y dispara la validación.
+- **`formState.errors`** → objeto con los errores por campo.
+
+Los `...` son el **spread de JavaScript**: `register('email', …)` devuelve un objeto (`name`, `onChange`, `ref`…) y el spread lo esparce como props del `<input>`. Por eso no escribís `value`/`onChange` a mano.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Escribí las reglas para <code>password</code>: obligatorio y mínimo 8 caracteres. Y una <code>validate</code> para <code>passwordConfirmation</code> que coincida con <code>password</code>. ¿Cómo mostrás el error?</summary>
+<div class="qa__a">
+
+```jsx
+{...register('password', {
+  required: 'La contraseña es requerida',
+  minLength: { value: 8, message: 'La contraseña debe tener al menos 8 caracteres' },
+})}
+
+{...register('passwordConfirmation', {
+  validate: (value) => value === password || 'Las contraseñas no coinciden',
+})}
+```
+
+`required` recibe un valor simple (el mensaje); `minLength` recibe un **objeto** `{ value, message }`. El error se muestra con:
+
+```jsx
+{errors.password && <p>{errors.password.message}</p>}
+```
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Alcanza con validar en el front-end? Justificá en una oración.</summary>
+<div class="qa__a">
+
+**No**: la validación del front se puede saltear (Postman, `curl`, devtools le pegan directo a la API sin pasar por el formulario), así que hay que **validar también en el back-end** — el front solo mejora la experiencia del usuario.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Con <code>disabled={'{!isValid || isSubmitting}'}</code>: al cargar (campos vacíos con <code>required</code>), ¿el botón está habilitado? ¿Y durante un envío de 3 s?</summary>
+<div class="qa__a">
+
+Al cargar está **deshabilitado**: los campos `required` vacíos hacen `isValid = false`, entonces `!isValid` es `true`. Durante el envío, `isSubmitting` pasa a `true` (botón deshabilitado y texto *"Enviando…"*); esto **evita doble submit** y da feedback. Son **dos guardas**: `!isValid` evita enviar inválido, `isSubmitting` evita reenviar mientras se procesa. `isDirty` indica si el usuario tocó algún campo; `errors` son los errores por campo.
+
+</div>
+</details>
 
 <Callout type="parcial">
 - **React Hook Form** simplifica formularios con hooks (menos código, menos re-renders).

@@ -58,6 +58,10 @@ function App() {
 `<Routes>` recorre las rutas en orden y renderiza solo la primera que matchea la URL actual. Por eso el comodín `*` (404) va siempre **al final**.
 </Callout>
 
+<Callout type="warn" title="¿Por qué <Link> y no <a>?">
+Un `<a href>` hace una **petición nueva al servidor** y **recarga toda la página**, perdiendo el estado de React (volver a montar todo). `<Link to>` intercepta el clic, cambia la URL con la History API y renderiza el componente **sin recargar** ni perder el estado. Por eso adentro de una SPA se usa siempre `<Link>`.
+</Callout>
+
 ## Rutas jerárquicas y anidadas
 
 Una app real tiene una estructura de rutas en forma de **árbol**:
@@ -130,6 +134,10 @@ export default function Producto() {
 // En /productos/electronica/1 → categoria="electronica", id="1"
 ```
 
+<Callout type="warn" title="useParams siempre devuelve strings">
+`useParams()` devuelve un **objeto** cuyos valores son **siempre strings**, aunque la URL traiga un número: en `/productos/electronica/1` da `{ categoria: "electronica", id: "1" }` — `id` es `"1"` (string), no `1`. Si lo necesitás como número, convertilo con `Number(id)`.
+</Callout>
+
 ### useNavigate — navegar por código
 
 ```jsx
@@ -149,6 +157,10 @@ navigate('/404', { replace: true });
 <div class="deflist__row"><div class="deflist__t">useLocation</div><div class="deflist__d">Da la ubicación actual (ruta, query, estado). Útil para redirección condicional.</div></div>
 <div class="deflist__row"><div class="deflist__t">&lt;Navigate /&gt;</div><div class="deflist__d">Componente que redirige al renderizarse (wrapper de useNavigate).</div></div>
 </div>
+
+<Callout type="info" title="Cuál uso, y qué hace replace">
+Tres preguntas deciden: ¿es un enlace que el usuario clickea? → **`<Link>`**. ¿Navego desde código tras un evento (un submit exitoso)? → **`useNavigate()`**, el enfoque **recomendado en React Router v6** (reemplaza al viejo `useHistory` de v5). ¿Quiero que el solo hecho de renderizarse redirija (usuario no logueado)? → **`<Navigate>`**. En `navigate('/404', { replace: true })`, `replace` **reemplaza** la entrada actual del historial en vez de agregar una nueva: el usuario no puede "volver" con el botón Atrás.
+</Callout>
 
 ## Patrón: ruta protegida
 
@@ -170,6 +182,80 @@ function RutaProtegida({ children, usuario }) {
   <RutaProtegida usuario={usuario}><Perfil /></RutaProtegida>
 } />
 ```
+
+## Autoevaluación
+
+<p class="muted">Preguntas del estilo del Parcial 2. Respondé mentalmente (o en papel) y recién después abrí la respuesta.</p>
+
+<details class="qa">
+<summary>¿Diferencia entre ruteo del lado del servidor y del cliente? Dos ventajas del lado del cliente. ¿Qué librería usa la cátedra?</summary>
+<div class="qa__a">
+
+En el **servidor**, cada cambio de URL pide una **página nueva** al servidor (viaja HTML por la red, recarga todo). En el **cliente**, el JS ya cargado **cambia la URL y renderiza el componente** sin pedir una página nueva.
+
+Ventajas del lado del cliente: experiencia **más rápida** (no recarga) y permite **transiciones/animaciones**; no re-evalúa todo el HTML/CSS/JS. Es la base de una **SPA**. Librería: **`react-router-dom`** (`npm install react-router-dom`).
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Completá: <code>/</code> → <code>&lt;Inicio/&gt;</code>, <code>/acerca</code> → <code>&lt;Acerca/&gt;</code>, cualquier otra → <code>&lt;Error404/&gt;</code>. ¿Por qué <code>&lt;Link&gt;</code> y no <code>&lt;a&gt;</code>?</summary>
+<div class="qa__a">
+
+```jsx
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+<BrowserRouter>
+  <Routes>
+    <Route path="/" element={<Inicio />} />
+    <Route path="/acerca" element={<Acerca />} />
+    <Route path="*" element={<Error404 />} />
+  </Routes>
+</BrowserRouter>
+```
+
+`<Routes>` renderiza la **primera** ruta que coincide (por eso `*` va al final). Se usa `<Link>` porque `<a href>` **recarga toda la página** y pierde el estado de React; `<Link>` cambia la URL **sin recargar**.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Para <code>/productos/:categoria/:id</code> navegando a <code>/productos/electronica/1</code>: ¿qué devuelve <code>useParams()</code> exactamente?</summary>
+<div class="qa__a">
+
+Los segmentos con `:` son **parámetros dinámicos**. `useParams()` devuelve un **objeto** con valores **string**:
+
+```js
+{ categoria: "electronica", id: "1" }  // id es "1" string, no 1
+```
+
+Se consume con `const { categoria, id } = useParams();`.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Asociá <code>&lt;Link&gt;</code>, <code>useNavigate()</code> y <code>&lt;Navigate&gt;</code> con su uso. ¿Qué hace <code>replace: true</code>?</summary>
+<div class="qa__a">
+
+- **`<Link to>`** → enlace declarativo en el JSX (menús, listados).
+- **`useNavigate()`** → navegar **por código** tras un evento (submit exitoso). Enfoque **recomendado en v6**.
+- **`<Navigate to>`** → redirigir **al renderizarse**, según una condición (usuario no logueado).
+
+`replace: true` **reemplaza** la entrada actual del historial en lugar de agregar una nueva: el usuario no puede "volver" a esa URL con Atrás.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>En rutas anidadas con <code>&lt;Outlet /&gt;</code>: navegando a <code>/admin/usuarios</code>, ¿qué se ve? En una ruta protegida, ¿para qué sirve <code>state={'{{ from: location }}'}</code>?</summary>
+<div class="qa__a">
+
+Se ve el **layout del padre `Admin`** (su título y menú) y, en el lugar del **`<Outlet />`**, se renderiza el hijo **`Usuarios`**. El `<Outlet />` marca el "hueco" donde entra la ruta hija.
+
+En la ruta protegida, si no hay usuario se redirige a `/login` con `<Navigate>`. Se guarda `location` en `state={{ from: location }}` para **recordar a dónde iba** y, tras loguearse, **devolverlo a esa página** en vez de a una fija.
+
+</div>
+</details>
 
 <Callout type="parcial">
 - **React Router** = ruteo del lado del cliente: cambia la URL **sin recargar**.

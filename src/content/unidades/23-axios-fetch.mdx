@@ -144,6 +144,10 @@ useEffect(() => {
 **Reutilización** (la misma lógica desde varios componentes), **separación de responsabilidades** (el componente solo muestra) y **mantenimiento/testing** más fáciles. Escala agregando `usuariosService.js`, etc.
 </Callout>
 
+<Callout type="warn" title="Mientras llega la respuesta, los datos son null">
+La petición es **asíncrona**: en el **primer render** los datos todavía no llegaron (por eso el estado arranca en `useState(null)`). Si hacés `data.map(...)` directamente, explota con *Cannot read properties of null*. Por eso se usa **renderizado condicional**: `{data ? <Tabla /> : <p>Cargando…</p>}`. El `useEffect` con `[]` dispara la carga **una sola vez** al montar; si lo omitieras, como adentro se hace `setData`, cada render volvería a pedir → re-render → pedir… un **loop infinito** de peticiones.
+</Callout>
+
 ## Interceptores
 
 Los **interceptores** son funciones que se ejecutan **antes** de enviar una petición o **después** de recibir una respuesta. Permiten aplicar lógica común a **todas** las llamadas desde un solo lugar.
@@ -196,6 +200,70 @@ api.interceptors.response.use(
 <Callout type="analogia" title="Interceptores = control de aduana">
 Toda petición que **sale** pasa por la aduana de salida (le ponen el sello del token); toda respuesta que **entra** pasa por la de llegada (revisan si hubo error). Lo escribís **una vez** y aplica a todo el tráfico.
 </Callout>
+
+<Callout type="danger" title="localStorage NO es 'totalmente seguro'">
+El JWT viaja en el header **`Authorization: Bearer <token>`**. Guardarlo en `localStorage` es cómodo, pero **cualquier JavaScript que corra en tu página puede leerlo** con `localStorage.getItem(...)`. Si tu sitio tiene una vulnerabilidad de **XSS** (Cross-Site Scripting — ver Apunte 17), un script inyectado roba el token y **suplanta al usuario**. El navegador **no** lo protege. Mitigaciones: prevenir el XSS (escapar/sanitizar entradas, CSP) y, para apps sensibles, guardar el token en una **cookie `HttpOnly`** (inaccesible desde JS).
+</Callout>
+
+## Autoevaluación
+
+<p class="muted">Preguntas del estilo del Parcial 2. Respondé mentalmente (o en papel) y recién después abrí la respuesta.</p>
+
+<details class="qa">
+<summary>¿Qué es Axios? Mapeá <code>get/post/put/delete</code> con verbo HTTP y operación CRUD. Dos ventajas sobre <code>fetch</code>.</summary>
+<div class="qa__a">
+
+Axios es una librería basada en **promesas** para peticiones HTTP (front y back).
+
+- `axios.get` → **GET** → **leer** (`/api/articulos`).
+- `axios.post` → **POST** → **crear** (`/api/articulos`).
+- `axios.put` → **PUT** → **reemplazar/actualizar** (`/api/articulos/5`).
+- `axios.delete` → **DELETE** → **borrar** (`/api/articulos/5`).
+
+Ventajas vs `fetch`: convierte la respuesta a **JSON automáticamente** y **lanza error** solo ante un status 4xx/5xx (con `fetch` ambas son manuales). También: interceptores y `baseURL`.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Por qué poner la llamada a Axios en un servicio separado? ¿Por qué el <code>useEffect</code> lleva <code>[]</code>? ¿Qué pasa si se omite?</summary>
+<div class="qa__a">
+
+El **patrón de servicio** separa responsabilidades: el componente solo **muestra**, el servicio concentra el acceso a datos → reutilizable, testeable y mantenible (mismos principios de arquitectura del Apunte 12).
+
+El `[]` hace que el efecto corra **una sola vez** (al montar). Si se omite, como adentro se hace `setArticulos`, cada render dispararía la carga → `setState` → re-render → carga… **loop infinito** de peticiones.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>En un componente que arranca con <code>useState(null)</code> y carga datos: ¿qué ve el usuario en orden? ¿Qué error da si se hace <code>data.map(...)</code> sin renderizado condicional?</summary>
+<div class="qa__a">
+
+Orden: primero `data` es `null` → se muestra **"Cargando datos…"**; cuando la promesa resuelve, el `setArticulos(data)` actualiza el estado → **re-render** → se muestra la tabla. El evento que provoca el cambio es la **resolución de la promesa** de Axios.
+
+Sin renderizado condicional, en el primer render `data` es `null` y `null.map(...)` lanza **`Cannot read properties of null (reading 'map')`**. Por eso `{data ? <Tabla /> : <p>Cargando…</p>}`.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Qué es un interceptor? Diferencia request vs response. Un compañero dice que guardar el JWT en <code>localStorage</code> "es totalmente seguro". ¿Qué le observás?</summary>
+<div class="qa__a">
+
+Un **interceptor** es una función que corre **antes** de enviar una petición (request) o **después** de recibir una respuesta (response). Es un punto **centralizado** para lógica transversal: el de **request** sirve para inyectar el token a todas las llamadas; el de **response**, para manejo de errores global.
+
+```js
+axios.interceptors.request.use((config) => {
+  config.headers.Authorization = `Bearer ${localStorage.getItem('authToken')}`;
+  return config;
+});
+```
+
+Lo que se le observa: `localStorage` **no es seguro**. Cualquier JS de la página puede leerlo, así que una vulnerabilidad de **XSS** permite **robar el token** y suplantar al usuario. El navegador no lo protege. Para datos sensibles conviene una cookie **`HttpOnly`** + prevenir XSS.
+
+</div>
+</details>
 
 <Callout type="parcial">
 - **Axios** = librería de peticiones HTTP basada en promesas (front y back).

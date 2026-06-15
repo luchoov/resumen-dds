@@ -173,6 +173,10 @@ function FormularioNoControlado() {
 **Controlado:** React es el **dueño** — cada tecla pasa por el estado. **No controlado:** el **DOM** guarda el valor y React lo “espía” solo cuando hace falta.
 </Callout>
 
+<Callout type="danger" title="El input que queda 'congelado'">
+Si escribís `value={nombre}` pero **te olvidás el `onChange`**, el input queda atado a un estado que nunca cambia → no podés escribir nada. Cortaste el ciclo del componente controlado: el `value` lo pinta el estado, pero nada lo actualiza. La solución es agregar `onChange={(e) => setNombre(e.target.value)}`. Bug independiente y clásico: olvidar `e.preventDefault()` en `handleSubmit` hace que el `<form>` **recargue la página** (comportamiento HTML por defecto).
+</Callout>
+
 <Callout type="tip" title="Recomendación de React">
 Usá **controlados por defecto**: son más predecibles, seguros y fáciles de validar. Dejá los **no controlados** para casos puntuales (formularios de terceros, performance extrema).
 </Callout>
@@ -203,6 +207,54 @@ function FormularioUsuario() {
 <div class="deflist__row"><div class="deflist__t">onChange</div><div class="deflist__d">Se dispara al cambiar el valor de un input/select. Actualiza el estado.</div></div>
 <div class="deflist__row"><div class="deflist__t">[e.target.name]</div><div class="deflist__d">Clave computada: actualiza el campo del objeto que coincide con el <code>name</code> del input.</div></div>
 </div>
+
+## Autoevaluación
+
+<p class="muted">Preguntas del estilo del Parcial 2. Respondé mentalmente (o en papel) y recién después abrí la respuesta.</p>
+
+<details class="qa">
+<summary>¿Cómo se comunica un padre con un hijo y un hijo con el padre? En un caso con un input y un botón "Enviar", contá la secuencia completa de un envío.</summary>
+<div class="qa__a">
+
+**Padre → hijo: por props.** **Hijo → padre: el padre define un callback y se lo pasa por props; el hijo lo invoca.** (Regla: *los datos bajan, los eventos suben*.)
+
+Secuencia al escribir "hola" y clickear Enviar: el `onChange` del input llama a `setTexto("hola")` (estado local del hijo) → al clickear, el hijo invoca `onEnviar("hola")`, que es el callback `agregarMensaje` **definido en el padre** → el padre hace `setMensajes([...mensajes, "hola"])` → cambia su estado → **el padre re-renderiza** y la lista muestra el nuevo mensaje. La define el **padre**, la invoca el **hijo**.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Qué problema resuelve Context frente a las props? Nombrá las 3 piezas. ¿Por qué usarlo "con moderación"?</summary>
+<div class="qa__a">
+
+Resuelve el **prop drilling**: pasar una prop por muchos niveles intermedios que no la usan, solo para que llegue abajo. Las 3 piezas: **crear** (`createContext`), **proveer** (`<Ctx.Provider value={…}>` en el padre) y **consumir** (`useContext(Ctx)` en el descendiente).
+
+Con moderación porque ata los componentes a un contexto y dificulta su **reutilización**. Conviene para datos **realmente globales** (usuario, tema, idioma); para pocos niveles, mejor props.
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Definí componente controlado vs no controlado (¿cuál es la fuente de verdad de cada uno?). ¿Cuál recomienda React?</summary>
+<div class="qa__a">
+
+- **Controlado:** la fuente de verdad es el **estado de React** (`value` + `onChange`); el valor se accede desde el estado; validación sencilla y reactiva.
+- **No controlado:** la fuente de verdad es el **DOM**; el valor se lee con `ref.current.value`; validación manual.
+
+React recomienda **controlados por defecto** (predecibles, fáciles de validar). Los no controlados se justifican en casos puntuales (integrar librerías de terceros, performance extrema).
+
+</div>
+</details>
+
+<details class="qa">
+<summary>Un input con <code>value={'{nombre}'}</code> "no deja escribir, queda congelado", y al enviar la página se recarga. ¿Qué falta en cada caso?</summary>
+<div class="qa__a">
+
+1. **Falta el `onChange`.** Con solo `value={nombre}`, el input refleja un estado que nunca se actualiza → no podés tipear. Solución: `onChange={(e) => setNombre(e.target.value)}` para cerrar el ciclo del componente controlado.
+2. **Falta `e.preventDefault()`** en `handleSubmit`. Por defecto, un `<form>` recarga la página al hacer submit; `preventDefault()` lo evita.
+
+</div>
+</details>
 
 <Callout type="parcial">
 - Padre→hijo por **props**; hijo→padre por **callback** (convención `onAlgo`).

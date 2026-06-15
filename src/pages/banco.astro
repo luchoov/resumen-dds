@@ -1,0 +1,200 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import Callout from '../components/Callout.astro';
+
+// Vocabulario técnico preciso (el parcial lo evalúa explícitamente)
+const vocab: { t: string; d: string }[] = [
+  { t: 're-render', d: 'React vuelve a ejecutar la función del componente para reflejar un nuevo estado/props. Lo dispara el setter de useState, no la mutación directa.' },
+  { t: 'estado (state)', d: 'Dato que el componente conserva entre renders y que, al cambiar con su setter, provoca un re-render.' },
+  { t: 'props', d: 'Datos que un padre pasa a un hijo. Son de solo lectura para el hijo; los datos bajan.' },
+  { t: 'fuente de verdad', d: 'El único lugar donde vive un dato. En un input controlado es el estado de React; en uno no controlado, el DOM.' },
+  { t: 'reconciliación / diffing', d: 'Comparación del nuevo Virtual DOM con el anterior para aplicar al DOM real solo el cambio mínimo.' },
+  { t: 'prop drilling', d: 'Pasar una prop por muchos niveles intermedios que no la usan solo para que llegue abajo. Context lo evita.' },
+  { t: 'lifting state up', d: 'Mover el estado al ancestro común cuando dos componentes necesitan compartir el mismo dato.' },
+  { t: 'transpilación', d: 'Transformar JSX a JavaScript estándar (React.createElement). La hace Babel; Vite la automatiza.' },
+  { t: 'efecto secundario', d: 'Acción fuera del render (fetch, timer, suscripción) que se ejecuta en useEffect.' },
+  { t: 'componente controlado', d: 'El value del input está atado al estado de React (value + onChange).' },
+];
+---
+
+<BaseLayout title="Banco de preguntas — Resumen DDS" accent="react" current="banco">
+  <article class="wrap">
+    <header class="uhero">
+      <a href="/" class="uhero__back"><Icon name="arrowLeft" size={15} /> Índice general</a>
+      <div class="uhero__top">
+        <span class="uhero__glyph"><Icon name="parcial" size={26} stroke={1.5} /></span>
+        <span class="uhero__no">P2</span>
+      </div>
+      <p class="uhero__eyebrow">Parcial 2 · React (Apuntes 19–24)</p>
+      <h1 class="uhero__title">Banco de preguntas</h1>
+      <p class="uhero__sub">
+        Preguntas relámpago para entrenar: predecí la respuesta y recién después abrila. Las
+        preguntas profundas, estilo parcial, están en la <strong>Autoevaluación</strong> de cada unidad.
+      </p>
+      <div class="uhero__meta chips">
+        <span class="chip">Vocabulario</span>
+        <span class="chip">V o F</span>
+        <span class="chip">Trampas</span>
+        <span class="chip">Predicción</span>
+      </div>
+    </header>
+
+    <div class="prose">
+      <Callout type="parcial" title="Cómo se evalúa el Parcial 2">
+        Lectura y <strong>predicción de código</strong> (qué renderiza y por qué), <strong>detección de
+        errores</strong> sutiles, <strong>vocabulario técnico preciso</strong> y <strong>correlación</strong>
+        front-back (Axios, REST, JWT y sus implicancias de seguridad). No se evalúa recitar de memoria ni
+        escribir apps enteras.
+      </Callout>
+
+      <h2>Vocabulario técnico (decilo con precisión)</h2>
+      <p class="muted">El parcial penaliza “la cosa que actualiza la pantalla”. Tené estos términos afilados.</p>
+      <div class="deflist">
+        {vocab.map((v) => (
+          <div class="deflist__row">
+            <div class="deflist__t">{v.t}</div>
+            <div class="deflist__d">{v.d}</div>
+          </div>
+        ))}
+      </div>
+
+      <h2>Apunte 19 — React, JSX, Virtual DOM, Vite</h2>
+
+      <details class="qa">
+        <summary>¿Qué significa que React es “declarativo”?</summary>
+        <div class="qa__a"><p>Describís <strong>cómo se ve cada estado</strong> de la UI y React se encarga de actualizar el DOM cuando los datos cambian; vos no tocás el DOM paso a paso (eso sería imperativo).</p></div>
+      </details>
+      <details class="qa">
+        <summary>V o F: el navegador puede ejecutar JSX directamente.</summary>
+        <div class="qa__a"><p><strong>Falso.</strong> El navegador no entiende JSX; hay que <strong>transpilarlo</strong> (Babel) a llamadas <code>React.createElement</code>. En Vite pasa automáticamente.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿En qué se convierte <code>const m = &lt;h1&gt;Hola&lt;/h1&gt;</code>?</summary>
+        <div class="qa__a"><p>En <code>React.createElement('h1', null, 'Hola')</code>. El 2.º argumento (<code>null</code>) son las props.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Al hacer clic en un contador, ¿se vuelve a crear el <code>&lt;button&gt;</code>?</summary>
+        <div class="qa__a"><p><strong>No.</strong> La reconciliación detecta que el botón no cambió: React solo actualiza el texto del <code>&lt;h1&gt;</code> en el DOM real.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Tres reglas “raras” de JSX y su causa común.</summary>
+        <div class="qa__a"><p><code>className</code> (no <code>class</code>), un <strong>único elemento raíz</strong> y <strong>cerrar todos los tags</strong> (<code>&lt;br /&gt;</code>). Causa: JSX no es HTML, es JavaScript que se transpila a <code>createElement</code>.</p></div>
+      </details>
+
+      <h2>Apunte 20 — Hooks, estado, listas, Context</h2>
+
+      <details class="qa">
+        <summary>¿Por qué <code>count++</code> no actualiza la pantalla?</summary>
+        <div class="qa__a"><p>Muta la variable sin pasar por el setter: React no se entera y <strong>no hay re-render</strong>. El setter actualiza el valor <em>y</em> dispara el render.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Por qué los hooks no pueden ir dentro de un <code>if</code>?</summary>
+        <div class="qa__a"><p>React identifica cada estado por el <strong>orden de llamada</strong> de los hooks (no por su nombre). Un <code>if</code> cambia ese orden entre renders y React asociaría mal cada valor.</p></div>
+      </details>
+      <details class="qa">
+        <summary>Tres formas de <code>useEffect</code> según su 2.º argumento.</summary>
+        <div class="qa__a"><p><code>[]</code> → solo al montar · <code>[dato]</code> → cuando cambia <code>dato</code> · sin 2.º arg → en cada render. Un <code>return</code> dentro = limpieza al desmontar.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Qué muestra <code>{'{[].length && <h2/>}'}</code> en pantalla?</summary>
+        <div class="qa__a"><p>Muestra un <strong><code>0</code></strong>. <code>&&</code> devuelve el primer operando falsy (<code>0</code>) y React imprime el número. Por eso se compara <code>length &gt; 0</code>.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Por qué no conviene usar el índice del <code>map</code> como <code>key</code>?</summary>
+        <div class="qa__a"><p>Si la lista se reordena o se inserta/borra en el medio, el índice deja de identificar al mismo elemento y React puede mostrar estado/datos equivocados. Mejor un ID estable.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Dónde vive el estado en “lifting state up”?</summary>
+        <div class="qa__a"><p>En el <strong>ancestro común más cercano</strong>, que se vuelve la única fuente de verdad y baja el dato (y un callback) por props.</p></div>
+      </details>
+
+      <h2>Apunte 21 — React Router</h2>
+
+      <details class="qa">
+        <summary>¿Qué renderiza <code>&lt;Routes&gt;</code> si varias rutas coinciden?</summary>
+        <div class="qa__a"><p>Solo la <strong>primera</strong> coincidencia, en orden. Por eso el comodín <code>path="*"</code> (404) va siempre al final.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿De qué tipo son los valores de <code>useParams()</code>?</summary>
+        <div class="qa__a"><p>Siempre <strong>strings</strong>. En <code>/productos/1</code>, <code>id</code> es <code>"1"</code>, no <code>1</code>. Convertí con <code>Number(id)</code> si hace falta.</p></div>
+      </details>
+      <details class="qa">
+        <summary><code>&lt;Link&gt;</code> vs <code>useNavigate()</code> vs <code>&lt;Navigate&gt;</code>: ¿cuándo cada uno?</summary>
+        <div class="qa__a"><p><code>&lt;Link&gt;</code>: enlace que el usuario clickea. <code>useNavigate()</code>: navegar por código tras un evento (recomendado en v6). <code>&lt;Navigate&gt;</code>: redirigir al renderizarse según condición.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Qué hace <code>&lt;Outlet /&gt;</code>?</summary>
+        <div class="qa__a"><p>Marca el “hueco” en el layout del padre donde se renderiza la <strong>ruta hija</strong> de una ruta anidada.</p></div>
+      </details>
+
+      <h2>Apunte 22 — Comunicación y formularios</h2>
+
+      <details class="qa">
+        <summary>Frase que resume la comunicación entre componentes.</summary>
+        <div class="qa__a"><p><strong>Los datos bajan (props), los eventos suben (callbacks).</strong></p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Cuál es la fuente de verdad en un componente controlado?</summary>
+        <div class="qa__a"><p>El <strong>estado de React</strong> (<code>value</code> + <code>onChange</code>). En uno no controlado es el <strong>DOM</strong> (se lee con <code>ref</code>).</p></div>
+      </details>
+      <details class="qa">
+        <summary>Un input con <code>value</code> pero sin <code>onChange</code>: ¿qué pasa?</summary>
+        <div class="qa__a"><p>Queda <strong>“congelado”</strong>: refleja un estado que nunca cambia, así que no se puede escribir. Falta cerrar el ciclo del componente controlado.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Qué evita <code>e.preventDefault()</code> en un submit?</summary>
+        <div class="qa__a"><p>Que el <code>&lt;form&gt;</code> recargue la página (comportamiento HTML por defecto).</p></div>
+      </details>
+
+      <h2>Apunte 23 — Axios e integración front-back</h2>
+
+      <details class="qa">
+        <summary>¿Dónde llegan los datos de una respuesta de Axios?</summary>
+        <div class="qa__a"><p>En <code>response.data</code> (ya parseado a JSON). No en <code>response</code> directamente.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Qué pasa si a un <code>useEffect</code> que hace <code>setState</code> le sacás el <code>[]</code>?</summary>
+        <div class="qa__a"><p>Loop infinito: cada render dispara la carga → <code>setState</code> → re-render → carga… Sin el array de dependencias corre en cada render.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿En qué header viaja el JWT y cómo se arma?</summary>
+        <div class="qa__a"><p>En <code>Authorization</code>, con el formato <code>Bearer &lt;token&gt;</code>.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Por qué guardar el JWT en <code>localStorage</code> es riesgoso?</summary>
+        <div class="qa__a"><p>Cualquier JS de la página puede leerlo; una vulnerabilidad de <strong>XSS</strong> permite robar el token y suplantar al usuario. Alternativa: cookie <code>HttpOnly</code>.</p></div>
+      </details>
+
+      <h2>Apunte 24 — React Hook Form</h2>
+
+      <details class="qa">
+        <summary>¿Qué significan los <code>...</code> en <code>{'{...register("email")}'}</code>?</summary>
+        <div class="qa__a"><p>Es el <strong>spread</strong> de JS: <code>register</code> devuelve un objeto (<code>name</code>, <code>onChange</code>, <code>ref</code>…) y el spread lo esparce como props del input.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Qué reglas reciben un valor simple y cuáles un objeto?</summary>
+        <div class="qa__a"><p><code>required</code> recibe un valor simple (el mensaje). <code>minLength</code>/<code>maxLength</code>/<code>min</code>/<code>max</code>/<code>pattern</code> reciben un objeto <code>{'{ value, message }'}</code>.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Hace falta validar también en el back-end?</summary>
+        <div class="qa__a"><p><strong>Sí.</strong> El front se saltea con Postman/curl. La validación del cliente es solo para la experiencia; la seguridad está en el back.</p></div>
+      </details>
+      <details class="qa">
+        <summary>¿Qué dos guardas tiene <code>disabled={'{!isValid || isSubmitting}'}</code>?</summary>
+        <div class="qa__a"><p><code>!isValid</code> evita enviar un formulario inválido; <code>isSubmitting</code> evita el doble envío mientras se procesa.</p></div>
+      </details>
+
+      <h2>Preguntas profundas (estilo parcial)</h2>
+      <p class="muted">Las 30 preguntas modelo, desarrolladas, están en la Autoevaluación al final de cada unidad:</p>
+      <div class="deflist">
+        <div class="deflist__row"><div class="deflist__t"><a href="/unidades/19-react-intro-vite/#autoevaluación">Apunte 19</a></div><div class="deflist__d">React, JSX, transpilación, Virtual DOM, Vite, estilos.</div></div>
+        <div class="deflist__row"><div class="deflist__t"><a href="/unidades/20-react-hooks-context/#autoevaluación">Apunte 20</a></div><div class="deflist__d">Hooks, useState, useEffect, listas, renderizado condicional, lifting state.</div></div>
+        <div class="deflist__row"><div class="deflist__t"><a href="/unidades/21-react-router/#autoevaluación">Apunte 21</a></div><div class="deflist__d">React Router: rutas, useParams, useNavigate, Outlet, ruta protegida.</div></div>
+        <div class="deflist__row"><div class="deflist__t"><a href="/unidades/22-react-formularios/#autoevaluación">Apunte 22</a></div><div class="deflist__d">Comunicación, Context, formularios controlados vs no controlados.</div></div>
+        <div class="deflist__row"><div class="deflist__t"><a href="/unidades/23-axios-fetch/#autoevaluación">Apunte 23</a></div><div class="deflist__d">Axios, CRUD, patrón de servicio, interceptores, JWT.</div></div>
+        <div class="deflist__row"><div class="deflist__t"><a href="/unidades/24-react-hook-form/#autoevaluación">Apunte 24</a></div><div class="deflist__d">useForm, register, validaciones, formState.</div></div>
+      </div>
+    </div>
+  </article>
+</BaseLayout>
