@@ -1,0 +1,224 @@
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Callout from '../../components/Callout.astro';
+import Figura from '../../components/Figura.astro';
+import Icon from '../../components/Icon.astro';
+
+<BaseLayout title="TPI · Frontend a fondo — Resumen DDS" accent="react" current="tpi">
+<article class="wrap">
+<header class="uhero">
+  <a href="/tpi/" class="uhero__back"><Icon name="arrowLeft" size={15} /> La solución del TPI</a>
+  <div class="uhero__top">
+    <span class="uhero__glyph"><Icon name="atom" size={26} stroke={1.5} /></span>
+    <span class="uhero__no">FE</span>
+  </div>
+  <p class="uhero__eyebrow">TP Integrador · Frontend</p>
+  <h1 class="uhero__title">Frontend a fondo</h1>
+  <p class="uhero__sub">React + Vite. Sesión con Context, rutas protegidas, la capa Axios con interceptores, formularios con React Hook Form y el tablero Kanban.</p>
+  <div class="uhero__meta chips">
+    <span class="chip">Context</span>
+    <span class="chip">React Router</span>
+    <span class="chip">Axios</span>
+    <span class="chip">RHF</span>
+  </div>
+</header>
+
+<div class="prose">
+
+## Estructura: el espejo del backend
+
+El front se organiza en capas, igual que el back. La clave: **las llamadas HTTP no se mezclan en los componentes**, van en `api/`.
+
+```text
+frontend/src/
+  api/         capa Axios: client.js (instancia + interceptores) + un service por recurso
+  context/     AuthContext (sesión) · ToastContext (avisos)
+  routes/      ProtectedRoute
+  pages/       una por pantalla (TareasListPage, TareaDetailPage, TareaFormPage...)
+  components/  tabla, tablero, tarjeta, filtros, formulario, acciones, historial, resumen
+```
+
+## Rutas y la ruta comodín
+
+`App.jsx` define todas las rutas. El enunciado exige la **ruta comodín `*`** para 404:
+
+```jsx
+<Routes>
+  <Route path="/login"    element={<LoginPage />} />        {/* pública */}
+  <Route path="/tareas"   element={<ConLayout><TareasListPage /></ConLayout>} />
+  <Route path="/tareas/nueva" element={<ConLayout soloAdminOLider><TareaFormPage /></ConLayout>} />
+  <Route path="/tareas/:id"   element={<ConLayout><TareaDetailPage /></ConLayout>} />
+  <Route path="/resumen"  element={<ConLayout soloAdminOLider><ResumenPage /></ConLayout>} />
+  <Route path="*"         element={<NotFoundPage />} />     {/* comodín: cualquier URL no definida */}
+</Routes>
+```
+
+## Sesión persistente con Context
+
+El enunciado pide conservar usuario, token y rol, y que la **sesión sobreviva a recargas**. Se resuelve con un Context que se inicializa leyendo `localStorage`:
+
+```jsx
+// context/AuthContext.jsx
+const [usuario, setUsuario] = useState(() => {
+  const guardado = localStorage.getItem('usuario');
+  return guardado ? JSON.parse(guardado) : null;   // al recargar, recupera la sesión
+});
+const [token, setToken] = useState(() => localStorage.getItem('token'));
+
+useEffect(() => {                                   // mantiene localStorage sincronizado
+  if (token && usuario) {
+    localStorage.setItem('token', token);
+    localStorage.setItem('usuario', JSON.stringify(usuario));
+  } else { localStorage.removeItem('token'); localStorage.removeItem('usuario'); }
+}, [token, usuario]);
+```
+
+<Callout type="parcial" title="El truco del useState con función">
+`useState(() => ...)` ejecuta esa función **una sola vez**, al montar. Por eso la lectura de `localStorage` (que es "cara") no corre en cada render. Es el patrón de *lazy initial state*. Si te preguntan cómo sobrevive la sesión a un F5: el estado **arranca** leyendo `localStorage`.
+</Callout>
+
+## Rutas protegidas (solo UX)
+
+```jsx
+// routes/ProtectedRoute.jsx
+if (!estaAutenticado)              return <Navigate to="/login" replace />;
+if (soloAdmin && !esAdmin)         return <Navigate to="/tareas" replace />;
+if (soloAdminOLider && !esAdminOLider) return <Navigate to="/tareas" replace />;
+return children;
+```
+
+<Callout type="danger" title="No reemplaza al backend">
+Proteger una ruta en el front **solo** impide la navegación visual. No es seguridad: cualquiera puede pegarle a la API con Postman. Por eso **cada request igual pasa por `authenticate` + `requireRole` en el backend**. El front es UX; la fuente de verdad es el back. Esta frase vale puntos.
+</Callout>
+
+## La capa Axios: una instancia + interceptores
+
+Todo pasa por **una** instancia de Axios. Dos interceptores hacen la magia:
+
+<Figura caption="El interceptor de request mete el token en cada llamada; el de response maneja el 401 global.">
+<svg viewBox="0 0 700 200" width="700" height="200" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif" font-size="11.5">
+  <rect x="20" y="80" width="120" height="44" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="80" y="100" fill="var(--text)" text-anchor="middle" font-weight="700">componente</text>
+  <text x="80" y="115" fill="var(--text-dim)" text-anchor="middle">crearTarea()</text>
+  <rect x="190" y="80" width="150" height="44" rx="9" fill="var(--surface-2)" stroke="hsl(var(--c-react))" stroke-width="1.5"/>
+  <text x="265" y="100" fill="var(--text)" text-anchor="middle" font-weight="700">interceptor request</text>
+  <text x="265" y="115" fill="var(--text-dim)" text-anchor="middle">+ Bearer token</text>
+  <rect x="395" y="80" width="120" height="44" rx="9" fill="var(--surface-2)" stroke="hsl(var(--c-express))"/>
+  <text x="455" y="105" fill="var(--text)" text-anchor="middle" font-weight="700">API backend</text>
+  <rect x="560" y="80" width="120" height="44" rx="9" fill="var(--surface-2)" stroke="hsl(var(--c-react))" stroke-width="1.5"/>
+  <text x="620" y="98" fill="var(--text)" text-anchor="middle" font-weight="700">interceptor</text>
+  <text x="620" y="113" fill="var(--text-dim)" text-anchor="middle">response · ¿401?</text>
+  <g stroke="var(--text-soft)" stroke-width="1.3" fill="none">
+    <path d="M140 102 L188 102" marker-end="url(#a)"/>
+    <path d="M340 102 L393 102" marker-end="url(#a)"/>
+    <path d="M515 102 L558 102" marker-end="url(#a)"/>
+  </g>
+  <text x="620" y="155" fill="var(--text-dim)" text-anchor="middle" font-size="10">401 → limpia sesión + va a /login</text>
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="var(--text-soft)"/></marker></defs>
+</svg>
+</Figura>
+
+```js
+// api/client.js
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api' });
+
+api.interceptors.request.use((config) => {            // mete el token en CADA request
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(                        // maneja el 401 global
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {             // token vencido/inválido
+      localStorage.removeItem('token'); localStorage.removeItem('usuario');
+      if (!location.pathname.startsWith('/login')) location.href = '/login';
+    }
+    return Promise.reject(error);                     // el resto se propaga a la pantalla
+  }
+);
+```
+
+Y un **service por recurso** (sin Axios suelto en componentes):
+
+```js
+// api/tareas.service.js
+export async function crearTarea(tarea)      { const { data } = await api.post('/tareas', tarea); return data; }
+export async function listarTareas(filtros)  { const { data } = await api.get('/tareas', { params: filtros }); return data; }
+export async function iniciarTarea(id)       { const { data } = await api.patch(`/tareas/${id}/iniciar`); return data; }
+```
+
+<Callout type="tip" title="getErrorMessage: el mensaje del backend en pantalla">
+`client.js` exporta un helper `getErrorMessage(error)` que extrae el `{ error }` (o `{ errors: [...] }`) de la respuesta de Axios. Así, cuando el backend rechaza una regla ("El responsable no pertenece al proyecto"), ese **mismo mensaje** se muestra al usuario. El error nace en el service del back y llega hasta la UI.
+</Callout>
+
+## Detalle: useParams y los 4 estados de la UI
+
+```jsx
+// pages/TareaDetailPage.jsx
+const { id } = useParams();                 // el enunciado pide leer params con useParams
+useEffect(() => { cargar(); }, [cargar]);   // carga al montar y cuando cambia el id
+```
+
+Cada pantalla maneja los **cuatro estados**: carga (skeleton), error (mensaje), vacío ("sin tareas") y éxito (datos). En el listado, además, **cambiar un filtro vuelve a pedirle al backend** — los filtros, la paginación y el orden se resuelven en el servidor; el front solo manda params.
+
+## Formularios con React Hook Form
+
+```jsx
+// components/tareas/TareaForm.jsx
+const { register, handleSubmit, watch, formState: { errors } } = useForm({ defaultValues });
+
+<input {...register('titulo', { required: 'El titulo es obligatorio' })} />
+{errors.titulo && <span className="field__error">{errors.titulo.message}</span>}
+```
+
+El detalle más lindo para defender: el select de responsable se **filtra en vivo** según el proyecto elegido, usando `watch`:
+
+```jsx
+const proyectoIdSeleccionado = watch('proyectoId');                    // observa el proyecto elegido
+const proyectoSel = proyectos.find((p) => String(p.id) === String(proyectoIdSeleccionado));
+const integrantes = proyectoSel ? proyectoSel.integrantes.map(String) : [];
+const responsablesPosibles = usuarios.filter((u) => integrantes.includes(String(u.id)));  // solo integrantes
+```
+
+<Callout type="parcial" title="Validar en el front NO alcanza">
+React Hook Form mejora la experiencia (mensajes bajo cada campo, no deja enviar vacío). Pero **el backend revalida todo**: el filtro del select es ayuda visual, no garantía. La pertenencia real del responsable al proyecto la decide el service. *"Las validaciones se repiten en el front por UX y en el back como fuente de verdad."*
+</Callout>
+
+## El tablero Kanban (extra, no pedido)
+
+<Callout type="warn" title="Esto NO lo pide el enunciado">
+El enunciado pide un **listado con filtros** (la tabla, que también está). El **tablero Kanban** se agregó como mejora de UX, inspirado en Trello. Si te preguntan, dejá clarísimo que es un extra documentado, y que la vista **Lista** es la que cumple lo pedido (filtros/paginación/orden en backend).
+</Callout>
+
+Lo interesante: el tablero **materializa las reglas de transición**. Arrastrar una tarjeta a otra columna dispara el `PATCH` correspondiente con **update optimista**:
+
+```text
+arrastro tarjeta → suelto en "finalizada" → muevo la tarjeta YA (optimista)
+   → PATCH /tareas/:id/finalizar
+        ├─ 200 ok      → queda
+        └─ 400 / 403   → REVIERTO la tarjeta + toast con el mensaje del backend
+```
+
+Es la **misma** función `puedeTransicionar` del backend, demostrada en vivo: si la transición es inválida o no tenés permiso, el back lo rechaza y la UI lo refleja. El backend sigue siendo la fuente de verdad; el tablero solo da pistas visuales (qué columnas son destino válido) y deshabilita arrastrar lo que no podés mover.
+
+<Callout type="tip" title="Cero librerías de UI">
+Todo es CSS propio con tokens (variables), iconos **SVG inline**, el gráfico del resumen es un **SVG calculado a mano** y el drag-and-drop es **nativo de HTML5** (`onDragStart`/`onDragOver`/`onDrop`), sin librería. Menos dependencias = más fácil de explicar en el parcial.
+</Callout>
+
+---
+
+<nav class="pager">
+  <a class="pager__link prev" href="/tpi/backend/">
+    <span class="pager__dir"><Icon name="arrowLeft" size={13} /> Anterior</span>
+    <span class="pager__t">Backend a fondo</span>
+  </a>
+  <a class="pager__link next" href="/tpi/defensa/">
+    <span class="pager__dir">Siguiente <Icon name="arrowRight" size={13} /></span>
+    <span class="pager__t">Defensa: las 2 preguntas</span>
+  </a>
+</nav>
+
+</div>
+</article>
+</BaseLayout>

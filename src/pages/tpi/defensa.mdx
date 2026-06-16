@@ -1,0 +1,214 @@
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Callout from '../../components/Callout.astro';
+import Icon from '../../components/Icon.astro';
+
+<BaseLayout title="TPI · Defensa del parcial — Resumen DDS" accent="security" current="tpi">
+<article class="wrap">
+<header class="uhero">
+  <a href="/tpi/" class="uhero__back"><Icon name="arrowLeft" size={15} /> La solución del TPI</a>
+  <div class="uhero__top">
+    <span class="uhero__glyph"><Icon name="parcial" size={26} stroke={1.5} /></span>
+    <span class="uhero__no">2Q</span>
+  </div>
+  <p class="uhero__eyebrow">TP Integrador · Las 2 preguntas a desarrollar</p>
+  <h1 class="uhero__title">Defensa del parcial</h1>
+  <p class="uhero__sub">Cómo encarar una pregunta a desarrollo, dos simulacros con respuesta modelo, y el banco de preguntas frecuentes con dónde mirar en el código.</p>
+  <div class="uhero__meta chips">
+    <span class="chip">Simulacros</span>
+    <span class="chip">Respuestas modelo</span>
+    <span class="chip">Trampas</span>
+  </div>
+</header>
+
+<div class="prose">
+
+<Callout type="parcial" title="Cómo es la instancia">
+Después del cuestionario de Moodle hay **2 preguntas a desarrollar sobre el código de tu solución**: rutas, servicios, componentes, middlewares, validaciones, JWT, permisos, pruebas y **decisiones**. No se evalúa recitar de memoria: se evalúa que puedas **explicar y justificar** lo que el grupo entregó.
+</Callout>
+
+## El método: 4 pasos para cualquier pregunta
+
+Estructurá toda respuesta así y nunca quedás en blanco:
+
+<ol class="pasos">
+<li>**Qué pide el enunciado** — nombrá el requisito ("el responsable debe integrar el proyecto").</li>
+<li>**Dónde está en el código** — el archivo y la función (`tarea.service.js → validarResponsableEnProyecto`).</li>
+<li>**Cómo funciona** — explicá el mecanismo en 2-3 frases.</li>
+<li>**Por qué esa decisión** — cerrá con el motivo (por qué va en el service y no en el formulario).</li>
+</ol>
+
+El paso 4 es el que sube la nota: muestra que entendés, no que memorizaste.
+
+## Simulacro 1 — Flujo completo de creación de una tarea
+
+> *"Explicá, de punta a punta, qué pasa cuando un líder crea una tarea desde el formulario: validaciones, capas, permisos y persistencia."*
+
+<Callout type="info" title="Respuesta modelo">
+**Front.** El líder completa `TareaForm.jsx`. React Hook Form valida en pantalla que los campos no estén vacíos, y el select de responsable muestra **solo** los integrantes del proyecto elegido (con `watch('proyectoId')`). Al enviar, el componente llama a `tareas.service.js → crearTarea()`, que hace `api.post('/tareas', tarea)`. Un **interceptor** de Axios le agrega el header `Authorization: Bearer <token>` automáticamente.
+
+**Backend — ruta y middlewares.** La petición entra a `POST /api/tareas`, que encadena: `authenticate` (verifica el JWT y deja `req.user`), `requireRole('lider','admin')` (el rol debe alcanzar), `crearTareaRules` + `validate` (formato con express-validator), y recién ahí `tareaController.crear`.
+
+**Backend — controller y service.** El controller es fino: llama `tareaService.crear(req.body, req.user)` dentro de un `try/catch` con `next(err)`. El **service** aplica todas las reglas: que el proyecto exista y no esté finalizado ni pausado, que prioridad y estado sean válidos, y la regla central, que el **responsable integre el proyecto** (`validarResponsableEnProyecto`). Si algo falla, lanza `AppError(400, mensaje)`.
+
+**Persistencia.** Si todo pasa, dentro de una **transacción** se crea la tarea **y** se registra el historial (`accion: 'creacion'`), para que la auditoría nunca quede inconsistente. El service devuelve la tarea (con el flag `vencida` calculado), el controller responde **201**, y el front muestra el éxito o, si falló una regla, el mensaje del backend.
+
+**Por qué así.** Las reglas viven en el service porque el formulario **se saltea** con Postman: la fuente de verdad tiene que estar en el backend, validando contra la base de datos.
+</Callout>
+
+## Simulacro 2 — Autenticación y autorización
+
+> *"¿Cómo implementaron seguridad? Explicá el JWT, los roles, las capas de permisos y la diferencia entre 401 y 403."*
+
+<Callout type="info" title="Respuesta modelo">
+**JWT.** Al hacer login/registro, `auth.service.js` valida credenciales (las contraseñas están **hasheadas con bcrypt**) y `utils/jwt.js → signToken` firma un token con un **payload mínimo**: `{ id, rol, nombre }` — nunca la contraseña ni el hash. El front lo guarda en `localStorage` y lo manda en cada request como `Bearer <token>` vía interceptor.
+
+**Tres capas de control.** (1) **Autenticación** en `auth.middleware.js`: lee el header, verifica el token con `verifyToken` y deja `req.user`. (2) **Autorización por rol** en `authorize.middleware.js` (`requireRole`): por ejemplo, `POST /api/tareas` exige líder o admin. (3) **Propiedad del recurso** en el `service`: un colaborador solo puede operar **sus** tareas (compara `tarea.responsableId` con `actor.id`); eso no lo puede saber un middleware genérico, por eso va en el service.
+
+**401 vs 403.** **401** cuando *falta* el token (no hay credenciales). **403** cuando el token es *inválido/expirado*, o cuando el usuario está autenticado pero su **rol o propiedad no alcanzan**. Ejemplo concreto: un colaborador con token válido que intenta crear una tarea pasa `authenticate` pero lo frena `requireRole` con **403**.
+
+**En el front.** Las rutas también están protegidas (`ProtectedRoute.jsx`), pero eso es solo navegación/UX: **no reemplaza** la validación del backend, que se ejecuta en cada request. Está todo cubierto por tests (`auth.test.js`, `tareas.test.js`).
+</Callout>
+
+<Callout type="tip" title="Si te toca una tercera pregunta o una repregunta">
+Las más probables: **manejo de errores** ("AppError + middleware con firma `(err, req, res, next)`, último en `app.js`"), **transiciones de estado** ("tabla `TRANSICIONES` + `puedeTransicionar`, una inválida da 400"), **historial** ("en transacción junto al cambio") o **testing** ("Jest + Supertest contra SQLite en memoria, semilla por `beforeEach`").
+</Callout>
+
+## Banco de preguntas frecuentes
+
+Predecí la respuesta y después abrila. Cada una dice **dónde mirar**.
+
+<h3>Backend — Express, Router, middlewares</h3>
+
+<details class="qa">
+<summary>¿Dónde está el <code>express.Router()</code> del recurso principal?</summary>
+<div class="qa__a"><p>En <code>routes/tarea.routes.js</code>. Cada recurso tiene su router en un archivo aparte y se montan en <code>app.js</code> con <code>app.use('/api/tareas', tareaRoutes)</code>.</p></div>
+</details>
+<details class="qa">
+<summary>¿Por qué <code>/tareas/resumen</code> va antes que <code>/tareas/:id</code>?</summary>
+<div class="qa__a"><p>Express evalúa las rutas en orden. Si <code>/:id</code> fuera primero, <code>/resumen</code> quedaría capturada tomando <code>"resumen"</code> como id.</p></div>
+</details>
+<details class="qa">
+<summary>¿En qué orden corren los middlewares de una ruta protegida?</summary>
+<div class="qa__a"><p><code>authenticate</code> → <code>requireRole</code> → validators → <code>validate</code> → controller. Y el manejador de errores, último de todo en <code>app.js</code>.</p></div>
+</details>
+<details class="qa">
+<summary>¿Cómo se conecta un error del service con la respuesta HTTP?</summary>
+<div class="qa__a"><p>El controller hace <code>try/catch</code> y <code>next(err)</code>. Eso saltea el resto y va al middleware de errores, que traduce el <code>AppError</code> a <code>res.status(...).json(&#123; error &#125;)</code>.</p></div>
+</details>
+<details class="qa">
+<summary>¿Qué hace <code>cors()</code> y por qué hace falta?</summary>
+<div class="qa__a"><p>En <code>app.js</code>, <code>app.use(cors())</code> permite que el front (puerto 5173) consuma la API (3001). Sin eso el navegador bloquea por política de mismo origen.</p></div>
+</details>
+
+<h3>Backend — JWT, roles, permisos</h3>
+
+<details class="qa">
+<summary>¿Qué lleva el JWT y dónde se firma?</summary>
+<div class="qa__a"><p>Se firma en <code>utils/jwt.js</code> (<code>signToken</code>). Payload <strong>solo</strong> <code>&#123; id, rol, nombre &#125;</code>: nada de contraseñas ni hash.</p></div>
+</details>
+<details class="qa">
+<summary>Diferencia entre 401 y 403.</summary>
+<div class="qa__a"><p><strong>401</strong>: falta el token. <strong>403</strong>: token inválido/expirado, o rol/propiedad insuficiente. La distinción está en <code>auth.middleware.js</code> y <code>authorize.middleware.js</code>.</p></div>
+</details>
+<details class="qa">
+<summary>Un colaborador con token válido, ¿por qué no puede crear una tarea?</summary>
+<div class="qa__a"><p>La ruta tiene <code>requireRole('lider','admin')</code>. Pasa <code>authenticate</code> pero lo frena <code>requireRole</code> con 403. No alcanza con tener JWT: además se valida el rol.</p></div>
+</details>
+<details class="qa">
+<summary>¿Dónde se valida que el colaborador solo opere sus propias tareas?</summary>
+<div class="qa__a"><p>En <code>tarea.service.js</code> (<code>actualizar</code> y <code>cambiarEstado</code>): compara <code>tarea.responsableId</code> con <code>actor.id</code>. Es una regla de propiedad, depende del recurso, por eso va en el service.</p></div>
+</details>
+<details class="qa">
+<summary>¿Cómo se guardan las contraseñas?</summary>
+<div class="qa__a"><p>Hasheadas con bcrypt (<code>bcrypt.hash</code> al registrar, <code>bcrypt.compare</code> al loguear). Nunca se devuelven: <code>sanitizar()</code> arma el usuario sin el hash.</p></div>
+</details>
+
+<h3>Backend — reglas del dominio</h3>
+
+<details class="qa">
+<summary>¿Cuál es la regla central del dominio?</summary>
+<div class="qa__a"><p>Una tarea solo se crea/reasigna si: el proyecto existe, no está finalizado, el responsable integra el proyecto, y prioridad y estado son válidos. Todo en <code>tarea.service.js</code>.</p></div>
+</details>
+<details class="qa">
+<summary>¿Cómo se controlan las transiciones de estado?</summary>
+<div class="qa__a"><p>Tabla <code>TRANSICIONES</code> + función <code>puedeTransicionar(origen, destino)</code> en <code>constants.js</code>. Las rutas PATCH y el PUT pasan por ahí. Una transición inválida da 400.</p></div>
+</details>
+<details class="qa">
+<summary>¿Qué pasa con un proyecto pausado o finalizado?</summary>
+<div class="qa__a"><p>Pausado: no se crean tareas nuevas, pero sí se editan las existentes. Finalizado: no se crea ni modifica nada (salvo una observación administrativa de admin/líder).</p></div>
+</details>
+<details class="qa">
+<summary>¿Cómo se calcula si una tarea está vencida?</summary>
+<div class="qa__a"><p><code>esVencida()</code>: <code>fechaLimite &lt; hoy</code> y estado no terminal. <strong>No se guarda</strong>: se calcula al serializar la respuesta, así siempre está actualizado.</p></div>
+</details>
+<details class="qa">
+<summary>¿Dónde y cómo se registra el historial?</summary>
+<div class="qa__a"><p><code>historial.service.js</code>. Lo llaman <code>crear</code>, <code>actualizar</code> y <code>cambiarEstado</code> dentro de una <strong>transacción</strong>, para que el cambio y su auditoría se confirmen juntos.</p></div>
+</details>
+
+<h3>Frontend — React, Axios, formularios</h3>
+
+<details class="qa">
+<summary>¿Cómo sobrevive la sesión a una recarga?</summary>
+<div class="qa__a"><p><code>AuthContext.jsx</code> inicializa el estado leyendo <code>localStorage</code> (lazy initial state) y lo mantiene sincronizado con un <code>useEffect</code>. Al recargar, el usuario sigue logueado.</p></div>
+</details>
+<details class="qa">
+<summary>¿Dónde está la ruta comodín y cómo lee el id el detalle?</summary>
+<div class="qa__a"><p>Comodín: <code>&lt;Route path="*" element=&#123;&lt;NotFoundPage /&gt;&#125; /&gt;</code> en <code>App.jsx</code>. El detalle lee el id con <code>useParams()</code> en <code>TareaDetailPage.jsx</code>.</p></div>
+</details>
+<details class="qa">
+<summary>¿Cómo se manda el token en cada petición?</summary>
+<div class="qa__a"><p>Un interceptor de request en <code>client.js</code> agrega <code>Authorization: Bearer &lt;token&gt;</code> leyendo el token de <code>localStorage</code>. No hay que pasarlo a mano.</p></div>
+</details>
+<details class="qa">
+<summary>¿Qué pasa si el backend devuelve 401?</summary>
+<div class="qa__a"><p>El interceptor de response limpia la sesión y redirige al login. El resto de errores se propagan y cada pantalla muestra el mensaje con <code>getErrorMessage()</code>.</p></div>
+</details>
+<details class="qa">
+<summary>En el formulario, ¿cómo se limita el responsable a los integrantes?</summary>
+<div class="qa__a"><p>Con <code>watch('proyectoId')</code> se observa el proyecto elegido, se toman sus <code>integrantes</code> y se filtra la lista de usuarios para mostrar solo esos.</p></div>
+</details>
+<details class="qa">
+<summary>¿La protección de rutas del front reemplaza al backend?</summary>
+<div class="qa__a"><p>No. <code>ProtectedRoute.jsx</code> solo impide la navegación visual. El backend valida JWT y rol en cada request: es la fuente de verdad.</p></div>
+</details>
+
+<h3>Decisiones y extras (no pedidos)</h3>
+
+<details class="qa">
+<summary>¿Por qué un tablero Kanban si el enunciado pedía una tabla?</summary>
+<div class="qa__a"><p>Es un <strong>extra</strong> de UX (inspirado en Trello), documentado en <code>DECISIONES.md §12</code>. La vista <strong>Lista</strong> cumple lo pedido: filtros, paginación y orden resueltos en el backend. El tablero además materializa las transiciones con update optimista.</p></div>
+</details>
+<details class="qa">
+<summary>El ABM de proyectos, ¿estaba pedido?</summary>
+<div class="qa__a"><p>No. El enunciado solo pide <code>GET /api/proyectos</code>. Se agregó <code>POST</code>/<code>PUT</code> <strong>admin-only</strong> y la pantalla de alta como módulo análogo al de tareas (mismo patrón de capas). Decisión documentada (<code>DECISIONES.md §11</code>).</p></div>
+</details>
+<details class="qa">
+<summary>¿Por qué existe <code>GET /api/usuarios</code> si no está en el enunciado?</summary>
+<div class="qa__a"><p>Para poblar el select de responsables del formulario con sus nombres. Devuelve datos no sensibles y requiere JWT. El enunciado admite soluciones equivalentes si se documentan.</p></div>
+</details>
+<details class="qa">
+<summary>¿Por qué SQLite + Sequelize y no JSON?</summary>
+<div class="qa__a"><p>SQLite persiste al reiniciar (un archivo) y Sequelize da modelos y asociaciones explícitas que reflejan las relaciones del enunciado. En tests se usa SQLite en memoria. JSON plano no da relaciones ni filtros/orden cómodos.</p></div>
+</details>
+<details class="qa">
+<summary>¿Por qué no hay borrado de tareas?</summary>
+<div class="qa__a"><p>Decisión de dominio: borrar destruye el historial y la trazabilidad. El ciclo se cierra con <code>cancelada</code>/<code>finalizada</code>, que conservan la auditoría.</p></div>
+</details>
+
+---
+
+<nav class="pager">
+  <a class="pager__link prev" href="/tpi/frontend/">
+    <span class="pager__dir"><Icon name="arrowLeft" size={13} /> Anterior</span>
+    <span class="pager__t">Frontend a fondo</span>
+  </a>
+  <a class="pager__link next" href="/tpi/">
+    <span class="pager__dir">Volver al inicio <Icon name="arrowRight" size={13} /></span>
+    <span class="pager__t">La solución del TPI</span>
+  </a>
+</nav>
+
+</div>
+</article>
+</BaseLayout>

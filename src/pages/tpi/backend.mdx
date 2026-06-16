@@ -1,0 +1,350 @@
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Callout from '../../components/Callout.astro';
+import Figura from '../../components/Figura.astro';
+import Icon from '../../components/Icon.astro';
+
+<BaseLayout title="TPI · Backend a fondo — Resumen DDS" accent="express" current="tpi">
+<article class="wrap">
+<header class="uhero">
+  <a href="/tpi/" class="uhero__back"><Icon name="arrowLeft" size={15} /> La solución del TPI</a>
+  <div class="uhero__top">
+    <span class="uhero__glyph"><Icon name="server" size={26} stroke={1.5} /></span>
+    <span class="uhero__no">BE</span>
+  </div>
+  <p class="uhero__eyebrow">TP Integrador · Backend</p>
+  <h1 class="uhero__title">Backend a fondo</h1>
+  <p class="uhero__sub">Express + Sequelize. Las capas, el ciclo de una petición, las reglas en el service, JWT y permisos, errores centralizados y testing.</p>
+  <div class="uhero__meta chips">
+    <span class="chip">Router</span>
+    <span class="chip">Middlewares</span>
+    <span class="chip">Service = reglas</span>
+    <span class="chip">JWT</span>
+  </div>
+</header>
+
+<div class="prose">
+
+## El ciclo de una petición protegida
+
+Cada request a una ruta privada atraviesa los mismos middlewares, **en orden**. Esto es lo primero que te pueden pedir que dibujes:
+
+<Figura caption="Orden de ejecución. Si cualquier paso lanza un error, se saltea el resto y va directo al manejador de errores.">
+<svg viewBox="0 0 720 150" width="720" height="150" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif" font-size="11.5">
+  <rect x="10" y="55" width="92" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="56" y="80" fill="var(--text)" text-anchor="middle">request</text>
+  <rect x="118" y="55" width="104" height="42" rx="9" fill="var(--surface-2)" stroke="hsl(var(--c-security))"/>
+  <text x="170" y="74" fill="var(--text)" text-anchor="middle" font-weight="700">authenticate</text>
+  <text x="170" y="89" fill="var(--text-dim)" text-anchor="middle">¿JWT válido?</text>
+  <rect x="238" y="55" width="104" height="42" rx="9" fill="var(--surface-2)" stroke="hsl(var(--c-security))"/>
+  <text x="290" y="74" fill="var(--text)" text-anchor="middle" font-weight="700">requireRole</text>
+  <text x="290" y="89" fill="var(--text-dim)" text-anchor="middle">¿rol alcanza?</text>
+  <rect x="358" y="55" width="104" height="42" rx="9" fill="var(--surface-2)" stroke="hsl(var(--c-testing))"/>
+  <text x="410" y="74" fill="var(--text)" text-anchor="middle" font-weight="700">validate</text>
+  <text x="410" y="89" fill="var(--text-dim)" text-anchor="middle">¿formato ok?</text>
+  <rect x="478" y="55" width="104" height="42" rx="9" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="530" y="74" fill="var(--text)" text-anchor="middle" font-weight="700">controller</text>
+  <text x="530" y="89" fill="var(--text-dim)" text-anchor="middle">delega</text>
+  <rect x="598" y="55" width="112" height="42" rx="9" fill="var(--surface-2)" stroke="hsl(var(--c-express))" stroke-width="2"/>
+  <text x="654" y="74" fill="var(--text)" text-anchor="middle" font-weight="700">service</text>
+  <text x="654" y="89" fill="var(--text-dim)" text-anchor="middle">reglas + DB</text>
+  <g stroke="var(--text-dim)" stroke-width="1.3">
+    <line x1="102" y1="76" x2="116" y2="76"/><line x1="222" y1="76" x2="236" y2="76"/>
+    <line x1="342" y1="76" x2="356" y2="76"/><line x1="462" y1="76" x2="476" y2="76"/>
+    <line x1="582" y1="76" x2="596" y2="76"/>
+  </g>
+  <text x="360" y="128" fill="var(--text-dim)" text-anchor="middle">throw AppError  →  middleware de errores (último en app.js)  →  res.status(...).json(&#123; error &#125;)</text>
+</svg>
+</Figura>
+
+Se ve directo en la ruta del recurso principal:
+
+```js
+// routes/tarea.routes.js
+router.post(
+  '/',
+  authenticate,                      // 1. ¿hay JWT válido? si no → 401/403
+  requireRole('lider', 'admin'),     // 2. ¿el rol alcanza? si no → 403
+  crearTareaRules,                   // 3. reglas de formato (express-validator)
+  validate,                          // 4. corta con 400 si el formato falla
+  tareaController.crear              // 5. recién acá el controller
+);
+```
+
+<Callout type="parcial" title="¿Por qué /resumen va antes que /:id?">
+Express evalúa las rutas **en orden**. Si `GET /tareas/:id` estuviera primero, una petición a `/tareas/resumen` quedaría capturada tomando `"resumen"` como si fuera un `id`. Por eso `router.get('/resumen', ...)` se declara **antes** que `router.get('/:id', ...)`.
+</Callout>
+
+## Las capas: cada una con un solo trabajo
+
+**Route** → arma el `express.Router()` y engancha middlewares. **Controller** → fino, solo orquesta. **Service** → todas las reglas. Mirá lo delgado que es el controller:
+
+```js
+// controllers/tarea.controller.js
+async function crear(req, res, next) {
+  try {
+    const tarea = await tareaService.crear(req.body, req.user);
+    res.status(201).json(tarea);
+  } catch (err) {
+    next(err);   // cualquier error salta al middleware de errores
+  }
+}
+```
+
+<Callout type="tip" title="El patrón try/catch + next(err)">
+**Todos** los controllers siguen el mismo molde: llaman al service y, ante cualquier error, hacen `next(err)`. Eso **saltea** el resto de la cadena y entrega el error al manejador centralizado. El controller nunca decide status codes de error ni arma mensajes: de eso se encarga el service (qué error) y el middleware (cómo responderlo).
+</Callout>
+
+## El service: el corazón del dominio
+
+Acá viven **todas** las reglas. El enunciado lo exige textual: *"las reglas de negocio deben estar en servicios del backend, no solamente en controladores ni formularios"*. Mirá `crear`:
+
+```js
+// services/tarea.service.js — crear()
+const proyecto = await Proyecto.findByPk(proyectoId);
+if (!proyecto)                       throw new AppError(400, 'El proyecto indicado no existe');
+if (proyecto.estado === 'finalizado') throw new AppError(400, 'No se pueden crear tareas en un proyecto finalizado');
+if (proyecto.estado === 'pausado')   throw new AppError(400, 'No se pueden crear tareas en un proyecto pausado');
+
+validarPrioridad(prioridadFinal);    // ∈ baja|media|alta|critica
+validarEstado(estadoInicial);        // ∈ pendiente|en_progreso|...
+
+const responsable = await Usuario.findByPk(responsableId);
+if (!responsable) throw new AppError(400, 'El responsable indicado no existe');
+validarResponsableEnProyecto(proyecto, responsableId);   // ← la regla central
+```
+
+La **regla central** del dominio (solo puede ser responsable quien integra el proyecto) es una función chiquita y reutilizable:
+
+```js
+function validarResponsableEnProyecto(proyecto, responsableId) {
+  const integrantes = (proyecto.integrantes || []).map(Number);
+  if (!integrantes.includes(Number(responsableId))) {
+    throw new AppError(400, 'El responsable no pertenece al proyecto');
+  }
+}
+```
+
+<Callout type="parcial" title="Distintos mensajes para distintos errores">
+El enunciado pide **mensajes de error diferenciados** (proyecto inexistente ≠ responsable inválido ≠ estado inválido ≠ falta de permisos). Por eso cada `AppError` lleva su propio texto. En el parcial puede caer: *"mostrame dónde se diferencia el error de responsable del de proyecto"* → son dos `throw` distintos en `crear()`.
+</Callout>
+
+## Estados y transiciones
+
+Los estados no saltan de cualquiera a cualquiera. Las transiciones válidas están centralizadas en una tabla y una función — no repartidas en `if` por todo el código:
+
+<Figura caption="Máquina de estados. Cualquier estado no terminal puede cancelarse. Finalizada y cancelada son terminales.">
+<svg viewBox="0 0 700 230" width="700" height="230" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif" font-size="12">
+  <g>
+    <rect x="20" y="95" width="120" height="44" rx="22" fill="var(--surface-2)" stroke="var(--border)"/>
+    <text x="80" y="122" fill="var(--text)" text-anchor="middle">pendiente</text>
+    <rect x="200" y="95" width="130" height="44" rx="22" fill="var(--surface-2)" stroke="hsl(var(--c-express))" stroke-width="1.5"/>
+    <text x="265" y="122" fill="var(--text)" text-anchor="middle">en_progreso</text>
+    <rect x="200" y="20" width="130" height="44" rx="22" fill="var(--surface-2)" stroke="var(--border)"/>
+    <text x="265" y="47" fill="var(--text)" text-anchor="middle">bloqueada</text>
+    <rect x="400" y="95" width="130" height="44" rx="22" fill="var(--surface-2)" stroke="hsl(var(--c-testing))" stroke-width="1.5"/>
+    <text x="465" y="122" fill="var(--text)" text-anchor="middle">finalizada</text>
+    <rect x="400" y="170" width="130" height="44" rx="22" fill="var(--surface-2)" stroke="hsl(var(--c-security))" stroke-width="1.5"/>
+    <text x="465" y="197" fill="var(--text)" text-anchor="middle">cancelada</text>
+  </g>
+  <g stroke="var(--text-soft)" stroke-width="1.5" fill="none">
+    <path d="M140 117 L198 117" marker-end="url(#ah)"/>
+    <path d="M265 95 L265 66" marker-end="url(#ah)"/>
+    <path d="M250 64 L250 95" marker-end="url(#ah)"/>
+    <path d="M330 113 L398 113" marker-end="url(#ah)"/>
+  </g>
+  <path d="M330 128 C 380 150, 400 165, 410 168" stroke="hsl(var(--c-security))" stroke-width="1.3" fill="none" stroke-dasharray="4 3" marker-end="url(#ah2)"/>
+  <text x="168" y="110" fill="var(--text-dim)" font-size="10" text-anchor="middle">iniciar</text>
+  <text x="300" y="84" fill="var(--text-dim)" font-size="10">bloquear</text>
+  <text x="222" y="84" fill="var(--text-dim)" font-size="10">↩</text>
+  <text x="364" y="106" fill="var(--text-dim)" font-size="10" text-anchor="middle">finalizar</text>
+  <text x="372" y="156" fill="hsl(var(--c-security))" font-size="10">cancelar (desde cualquiera)</text>
+  <defs>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="var(--text-soft)"/></marker>
+    <marker id="ah2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="hsl(var(--c-security))"/></marker>
+  </defs>
+</svg>
+</Figura>
+
+```js
+// utils/constants.js
+const TRANSICIONES = {
+  pendiente:   ['en_progreso'],
+  en_progreso: ['bloqueada', 'finalizada'],
+  bloqueada:   ['en_progreso'],   // desbloqueo (decisión documentada)
+  finalizada:  [],
+  cancelada:   [],
+};
+
+function puedeTransicionar(origen, destino) {
+  if (origen === destino) return false;
+  if (destino === 'cancelada') return !ESTADOS_TERMINALES.includes(origen); // cancelar desde cualquiera
+  return (TRANSICIONES[origen] || []).includes(destino);
+}
+```
+
+<Callout type="tip" title="Un extra para defender: bloqueada → en_progreso">
+El enunciado no define el "desbloqueo". Se agregó `bloqueada → en_progreso` como continuación natural (sin eso, una tarea bloqueada quedaría sin salida salvo cancelarla). Es una **decisión documentada** en `docs/DECISIONES.md §6`. Si te preguntan por una transición que el enunciado no menciona, esta es tuya.
+</Callout>
+
+## "Vencida": un dato derivado (no se guarda)
+
+```js
+function esVencida(tarea) {
+  if (ESTADOS_TERMINALES.includes(tarea.estado)) return false;  // finalizada/cancelada nunca vencen
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  return new Date(tarea.fechaLimite) < hoy;
+}
+```
+
+No se persiste en la base: se calcula **al momento de responder** (al serializar la tarea se agrega `vencida: true/false`). ¿Por qué? Si se guardara, mañana quedaría desactualizado. Calculándolo al vuelo, siempre da el valor correcto.
+
+## JWT, roles y permisos: tres capas
+
+<Callout type="parcial" title="La distinción 401 vs 403 (cae casi seguro)">
+**401** = *no sé quién sos* (falta el token). **403** = *sé quién sos, pero no podés* (token inválido/expirado, o rol/propiedad insuficiente). Son cosas distintas y el código las separa.
+</Callout>
+
+```js
+// middlewares/auth.middleware.js — autenticación
+const [esquema, token] = (req.headers.authorization || '').split(' ');
+if (esquema !== 'Bearer' || !token) return next(new AppError(401, 'Falta el token...'));  // 401: no hay credencial
+try {
+  const payload = verifyToken(token);
+  req.user = { id: payload.id, rol: payload.rol, nombre: payload.nombre };   // queda disponible para todos
+  return next();
+} catch (err) {
+  return next(new AppError(403, 'Token invalido o expirado'));   // 403: credencial no sirve
+}
+```
+
+El JWT se firma con un **payload mínimo** — nunca la contraseña ni el hash:
+
+```js
+// utils/jwt.js
+const payload = { id: usuario.id, rol: usuario.rol, nombre: usuario.nombre };  // y nada más
+return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN });
+```
+
+Las **tres capas** de control trabajan juntas:
+
+| Capa | Archivo | Pregunta que responde | Error |
+|---|---|---|---|
+| Autenticación | `auth.middleware.js` | ¿Hay un JWT válido? | 401 / 403 |
+| Autorización por rol | `authorize.middleware.js` (`requireRole`) | ¿El rol alcanza para esta acción? | 403 |
+| Propiedad del recurso | `tarea.service.js` | ¿Es **su** tarea? (colaborador) | 403 |
+
+```js
+// authorize.middleware.js — autorización por rol
+function requireRole(...rolesPermitidos) {
+  return (req, res, next) => {
+    if (!rolesPermitidos.includes(req.user.rol)) {
+      return next(new AppError(403, 'No tenes permisos para realizar esta accion'));
+    }
+    return next();
+  };
+}
+```
+
+```js
+// tarea.service.js — propiedad del recurso (lo que un middleware genérico no puede saber)
+const esAdminOLider = actor.rol === 'admin' || actor.rol === 'lider';
+const esResponsable = Number(tarea.responsableId) === Number(actor.id);
+if (!esAdminOLider && !esResponsable) {
+  throw new AppError(403, 'Solo podes cambiar el estado de tus propias tareas');
+}
+```
+
+<Callout type="analogia" title="Por qué la propiedad va en el service y no en un middleware">
+`requireRole` es un **guardia de la puerta**: solo mira tu credencial (el rol), no sabe nada de tareas. Pero *"¿es **tu** tarea?"* depende de mirar el recurso concreto en la base — eso solo lo puede decidir el service, que tiene la tarea y el `actor` adelante.
+</Callout>
+
+Y las contraseñas, hasheadas con **bcrypt** (nunca se devuelven):
+
+```js
+// auth.service.js
+const passwordHash = await bcrypt.hash(password, salt);   // register
+const coincide     = await bcrypt.compare(password, usuario.passwordHash);  // login
+// sanitizar(usuario) arma el objeto SIN el passwordHash antes de responder
+```
+
+## Errores centralizados
+
+Los services lanzan `AppError(status, mensaje)`; un único middleware lo traduce a HTTP. Va **último** en `app.js`, después de las rutas, y tiene la firma de **4 parámetros** que Express usa para reconocerlo:
+
+```js
+// middlewares/error.middleware.js
+function errorHandler(err, req, res, next) {     // ← 4 params = manejador de errores
+  if (err instanceof AppError) return res.status(err.status).json({ error: err.message });
+  if (err.name === 'SequelizeUniqueConstraintError') return res.status(400).json({ error: '...' });
+  console.error('[error no controlado]', err);
+  return res.status(500).json({ error: 'Error interno del servidor' });   // genérico, sin filtrar detalles
+}
+```
+
+<Callout type="danger" title="Error frecuente: el orden en app.js">
+El middleware de errores **tiene que ir después** de `app.use('/api/tareas', ...)`. Si lo ponés antes de las rutas, nunca se ejecuta. Por eso en `app.js` el `app.use(errorHandler)` es la **última** línea antes del `return app`.
+</Callout>
+
+## Historial dentro de una transacción
+
+Cada cambio auditable (creación, edición, reasignación, cambio de prioridad/estado, cancelación) se registra **junto con** el cambio, en una transacción de Sequelize:
+
+```js
+return sequelize.transaction(async (t) => {
+  const tarea = await Tarea.create({ ... }, { transaction: t });
+  await historialService.registrar({ tareaId: tarea.id, usuarioId: actor.id,
+    accion: 'creacion', valorAnterior: null, valorNuevo: { estado, responsableId, prioridad } }, t);
+  return serializar(tarea);
+});
+```
+
+<Callout type="tip" title="¿Por qué una transacción?">
+Si la tarea se guardara pero el historial no (o al revés), la auditoría quedaría inconsistente. La transacción garantiza **o los dos, o ninguno** (atomicidad).
+</Callout>
+
+## Testing — Jest + Supertest
+
+```bash
+cd backend && npm test
+```
+
+- Corre contra **SQLite en memoria** (`:memory:`): cada corrida arranca limpia.
+- `beforeEach` recarga la semilla determinista → los tests **no se pisan** entre sí.
+- `app.js` exporta `createApp()` **sin** `listen()`, así Supertest monta la app sin abrir un puerto real (el `listen` vive en `server.js`).
+
+Cada test verifica **status HTTP y cuerpo JSON**. Ejemplos reales:
+
+```js
+test('responsable fuera del proyecto devuelve 400 con mensaje especifico', async () => {
+  const res = await request(app).post('/api/tareas').set(auth(liderToken))
+    .send(baseTarea({ proyectoId: seed.proyectos.pApi.id, responsableId: seed.usuarios.sofia.id }));
+  expect(res.status).toBe(400);
+  expect(res.body.error).toMatch(/responsable/i);
+});
+
+test('colaborador no puede crear tareas (403)', async () => {
+  const res = await request(app).post('/api/tareas').set(auth(colabToken)).send(baseTarea({ ... }));
+  expect(res.status).toBe(403);
+});
+```
+
+<Callout type="parcial" title="Casos que cubren los tests">
+Login ok/inválido · acceso sin token (401) · listado con/sin filtros · detalle 200/404 · alta válida (201) · alta inválida por responsable/prioridad/estado/proyecto finalizado/pausado (400) · colaborador en acción de admin (403) · transición inválida (400) · resumen (admin 200 / colaborador 403) · historial. Son los 10 casos que pide el enunciado.
+</Callout>
+
+---
+
+<nav class="pager">
+  <a class="pager__link prev" href="/tpi/">
+    <span class="pager__dir"><Icon name="arrowLeft" size={13} /> Volver</span>
+    <span class="pager__t">La solución del TPI</span>
+  </a>
+  <a class="pager__link next" href="/tpi/frontend/">
+    <span class="pager__dir">Siguiente <Icon name="arrowRight" size={13} /></span>
+    <span class="pager__t">Frontend a fondo</span>
+  </a>
+</nav>
+
+</div>
+</article>
+</BaseLayout>

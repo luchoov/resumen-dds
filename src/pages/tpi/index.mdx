@@ -1,0 +1,219 @@
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Callout from '../../components/Callout.astro';
+import Figura from '../../components/Figura.astro';
+import Icon from '../../components/Icon.astro';
+
+<BaseLayout title="La solución del TPI — Resumen DDS" accent="data" current="tpi">
+<article class="wrap">
+<header class="uhero">
+  <a href="/" class="uhero__back"><Icon name="arrowLeft" size={15} /> Índice general</a>
+  <div class="uhero__top">
+    <span class="uhero__glyph"><Icon name="server" size={26} stroke={1.5} /></span>
+    <span class="uhero__no">TP</span>
+  </div>
+  <p class="uhero__eyebrow">TP Integrador · Base de las 2 preguntas a desarrollar</p>
+  <h1 class="uhero__title">La solución del TPI</h1>
+  <p class="uhero__sub">Recorrido de la app de seguimiento de tareas: qué pide el enunciado, qué se agregó de más, y cómo viaja un dato de la pantalla a la base y vuelve.</p>
+  <div class="uhero__meta chips">
+    <span class="chip">Express + Sequelize</span>
+    <span class="chip">JWT</span>
+    <span class="chip">React + Vite</span>
+    <span class="chip">Jest</span>
+  </div>
+</header>
+
+<div class="sumario">
+  <p class="sumario__h">En una frase</p>
+  <p>Una app full-stack donde una <strong>Tarea</strong> vive dentro de un <strong>Proyecto</strong>, se asigna a un responsable que integre ese proyecto, y avanza por estados con reglas y permisos — todo validado en el <strong>backend</strong>, que es la fuente de verdad.</p>
+</div>
+
+<div class="prose">
+
+<Callout type="parcial" title="Por qué esta sección importa más que la teoría">
+El cuestionario de Moodle sale con las unidades 19–24. Pero las **2 preguntas a desarrollar son sobre este código**: rutas, servicios, middlewares, validaciones, JWT, permisos, pruebas y *decisiones*. Nadie las puede estudiar por vos. Si entendés **un** flujo completo (crear una tarea), tenés el 80% de las respuestas.
+</Callout>
+
+## El problema, en una pantalla
+
+No es un CRUD genérico. El enunciado exige **reglas de dominio reales**:
+
+- Una **tarea** pertenece **obligatoriamente** a un **proyecto**.
+- El **responsable** debe figurar en los **integrantes** de ese proyecto.
+- **Prioridad** y **estado** solo aceptan valores de una lista cerrada.
+- Los **estados** avanzan por un flujo coherente (no se salta de cualquier estado a cualquier otro).
+- Hay **roles** (colaborador / líder / admin) con permisos distintos.
+- Cada cambio queda registrado en un **historial** (auditoría).
+
+El sistema modela **4 entidades**: `usuarios`, `proyectos`, `tareas`, `historial_tareas`.
+
+## Qué ENTRA (lo que pide el enunciado)
+
+Esto es lo mínimo obligatorio. Si te preguntan, esto **sí o sí** lo tenés que saber ubicar en el código:
+
+| Requisito | Dónde vive |
+|---|---|
+| Auth: registro, login, JWT, roles, sesión persistente | `auth.*` (back) + `AuthContext.jsx` (front) |
+| Recurso principal con listado, filtros, detalle, alta, edición, acciones de estado | `tarea.*` (back) + páginas `Tarea*` (front) |
+| Reglas de negocio **en servicios** del backend | `services/tarea.service.js` |
+| Resumen administrativo con métricas | `tarea.service.js → resumen()` + `/resumen` |
+| Historial de cambios visible | `historial.service.js` + detalle |
+| Filtros, paginación y orden **resueltos en backend** | `tarea.service.js → listar()` |
+| Middlewares: auth, autorización, validación, errores | `middlewares/` |
+| Errores centralizados `(err, req, res, next)` | `error.middleware.js` |
+| Pruebas con Jest + Supertest | `backend/tests/` |
+| React Router con ruta comodín `*` | `App.jsx` |
+| Capa Axios separada por recurso + interceptores | `frontend/src/api/` |
+
+## Qué está "DE MÁS" (extras, no pedidos)
+
+Acá está la trampa de estudio: **hay código que el enunciado NO pide**. Saber distinguirlo te hace quedar bien ("esto lo agregamos como decisión, no porque lo pidiera el enunciado"). Son tres:
+
+<Callout type="tip" title="Los 3 extras de esta entrega">
+**1. Tablero Kanban (drag & drop).** El enunciado pide un *listado con filtros* (tabla). El tablero por columnas es una **mejora de UX** — `TareaBoard.jsx`. La tabla con filtros/paginación/orden sí es lo pedido y también está.
+
+**2. ABM de Proyectos.** El enunciado solo pide `GET /api/proyectos` (para llenar el select del formulario). Se agregó `POST` y `PUT /api/proyectos` **admin-only**, y la pantalla `/proyectos/nuevo`. Es un módulo análogo al de tareas, documentado como decisión.
+
+**3. `GET /api/usuarios`.** No está en la lista de rutas del enunciado. Se agregó porque el formulario de tarea necesita los nombres de los posibles responsables. Devuelve datos no sensibles.
+</Callout>
+
+Si te preguntan por alguno, la respuesta de oro es: *"no lo pedía el enunciado; lo agregamos como decisión documentada en `docs/DECISIONES.md`, reusando el mismo patrón de capas"*. Eso demuestra que entendés el alcance.
+
+## La arquitectura en capas
+
+El backend separa responsabilidades en capas. Una petición las atraviesa **siempre en el mismo orden**. Esta es la imagen mental que tenés que poder dibujar:
+
+<Figura caption="El camino de una petición: cada capa tiene un único trabajo.">
+<svg viewBox="0 0 720 360" width="720" height="360" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="20" y="20" width="200" height="320" rx="14" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="120" y="46" font-size="13" fill="hsl(var(--c-react))" text-anchor="middle" font-weight="700">FRONTEND · React</text>
+  <rect x="40" y="62" width="160" height="40" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+  <text x="120" y="86" font-size="12" fill="var(--text)" text-anchor="middle">pages / components</text>
+  <rect x="40" y="112" width="160" height="40" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+  <text x="120" y="130" font-size="12" fill="var(--text)" text-anchor="middle">api/ (Axios)</text>
+  <text x="120" y="146" font-size="10" fill="var(--text-dim)" text-anchor="middle">interceptor: Bearer token</text>
+
+  <text x="120" y="190" font-size="11" fill="var(--text-dim)" text-anchor="middle">HTTP + JSON</text>
+  <line x1="120" y1="200" x2="120" y2="230" stroke="hsl(var(--c-data))" stroke-width="2"/>
+  <path d="M114 224 L120 234 L126 224 Z" fill="hsl(var(--c-data))"/>
+  <rect x="40" y="240" width="160" height="40" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+  <text x="120" y="264" font-size="12" fill="var(--text)" text-anchor="middle">localStorage</text>
+  <text x="120" y="300" font-size="11" fill="var(--text-dim)" text-anchor="middle">sesión: token + usuario</text>
+
+  <rect x="260" y="20" width="440" height="320" rx="14" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="480" y="46" font-size="13" fill="hsl(var(--c-express))" text-anchor="middle" font-weight="700">BACKEND · Express + Sequelize</text>
+
+  <g font-size="12.5">
+    <rect x="284" y="60" width="392" height="34" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+    <text x="300" y="82" fill="var(--text)">① route — arma el router y engancha middlewares</text>
+    <rect x="284" y="100" width="392" height="34" rx="8" fill="var(--surface)" stroke="hsl(var(--c-security))"/>
+    <text x="300" y="122" fill="var(--text)">② middlewares — authenticate · requireRole · validate</text>
+    <rect x="284" y="140" width="392" height="34" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+    <text x="300" y="162" fill="var(--text)">③ controller — lee req, llama al service, arma respuesta</text>
+    <rect x="284" y="180" width="392" height="34" rx="8" fill="var(--surface)" stroke="hsl(var(--c-express))" stroke-width="2"/>
+    <text x="300" y="202" fill="var(--text)" font-weight="700">④ service — TODAS las reglas de negocio</text>
+    <rect x="284" y="220" width="392" height="34" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+    <text x="300" y="242" fill="var(--text)">⑤ models (Sequelize) — Usuario · Proyecto · Tarea · Historial</text>
+    <rect x="284" y="260" width="392" height="34" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+    <text x="300" y="282" fill="var(--text)">⑥ SQLite — persiste al reiniciar</text>
+  </g>
+  <text x="480" y="318" font-size="11" fill="var(--text-dim)" text-anchor="middle">Si algo falla, se lanza AppError → middleware de errores (al final)</text>
+</svg>
+</Figura>
+
+<Callout type="analogia" title="La regla de oro de las capas">
+La **route** es la recepcionista (te deriva). Los **middlewares** son seguridad (¿tenés entrada? ¿podés pasar a esta sala?). El **controller** es el mozo (toma el pedido, lo lleva). El **service** es la cocina (donde **realmente** se decide y se cocina). Los **models** son la despensa. El cliente nunca entra a la cocina.
+</Callout>
+
+## El modelo de datos (4 entidades)
+
+<Figura caption="Las 4 entidades y sus relaciones. Una tarea cruza proyecto y usuario; el historial audita todo.">
+<svg viewBox="0 0 700 320" width="700" height="320" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono Variable, monospace">
+  <rect x="30" y="40" width="180" height="110" rx="10" fill="var(--surface-2)" stroke="hsl(var(--c-data))" stroke-width="1.5"/>
+  <text x="120" y="64" font-size="14" fill="hsl(var(--c-data))" text-anchor="middle" font-weight="700">Proyecto</text>
+  <text x="48" y="88" font-size="11" fill="var(--text-soft)">id · codigo · nombre</text>
+  <text x="48" y="106" font-size="11" fill="var(--text-soft)">estado</text>
+  <text x="48" y="124" font-size="11" fill="var(--text-soft)">integrantes []</text>
+
+  <rect x="30" y="190" width="180" height="100" rx="10" fill="var(--surface-2)" stroke="hsl(var(--c-react))" stroke-width="1.5"/>
+  <text x="120" y="214" font-size="14" fill="hsl(var(--c-react))" text-anchor="middle" font-weight="700">Usuario</text>
+  <text x="48" y="238" font-size="11" fill="var(--text-soft)">id · nombre · email</text>
+  <text x="48" y="256" font-size="11" fill="var(--text-soft)">passwordHash</text>
+  <text x="48" y="274" font-size="11" fill="var(--text-soft)">rol · activo</text>
+
+  <rect x="320" y="100" width="190" height="130" rx="10" fill="var(--surface-2)" stroke="hsl(var(--c-express))" stroke-width="2"/>
+  <text x="415" y="124" font-size="14" fill="hsl(var(--c-express))" text-anchor="middle" font-weight="700">Tarea</text>
+  <text x="338" y="148" font-size="11" fill="var(--text-soft)">id · titulo · descripcion</text>
+  <text x="338" y="166" font-size="11" fill="var(--text-soft)">proyectoId →</text>
+  <text x="338" y="184" font-size="11" fill="var(--text-soft)">responsableId →</text>
+  <text x="338" y="202" font-size="11" fill="var(--text-soft)">prioridad · estado</text>
+  <text x="338" y="220" font-size="11" fill="var(--text-soft)">fechaLimite</text>
+
+  <rect x="560" y="100" width="120" height="130" rx="10" fill="var(--surface-2)" stroke="hsl(var(--c-router))" stroke-width="1.5"/>
+  <text x="620" y="124" font-size="12" fill="hsl(var(--c-router))" text-anchor="middle" font-weight="700">Historial</text>
+  <text x="576" y="150" font-size="10" fill="var(--text-soft)">tareaId →</text>
+  <text x="576" y="167" font-size="10" fill="var(--text-soft)">usuarioId →</text>
+  <text x="576" y="184" font-size="10" fill="var(--text-soft)">accion</text>
+  <text x="576" y="201" font-size="10" fill="var(--text-soft)">valorAnterior</text>
+  <text x="576" y="218" font-size="10" fill="var(--text-soft)">valorNuevo</text>
+
+  <line x1="210" y1="95" x2="320" y2="140" stroke="hsl(var(--c-data))" stroke-width="1.5"/>
+  <text x="248" y="108" font-size="10" fill="var(--text-dim)">1 : N</text>
+  <line x1="210" y1="235" x2="320" y2="185" stroke="hsl(var(--c-react))" stroke-width="1.5"/>
+  <text x="248" y="222" font-size="10" fill="var(--text-dim)">responsable</text>
+  <line x1="510" y1="165" x2="560" y2="165" stroke="hsl(var(--c-router))" stroke-width="1.5"/>
+  <text x="525" y="158" font-size="10" fill="var(--text-dim)">1 : N</text>
+</svg>
+</Figura>
+
+Las relaciones se declaran con Sequelize en `models/index.js`: `Proyecto.hasMany(Tarea)`, `Tarea.belongsTo(Usuario, { as: 'responsable' })`, etc. Eso permite traer la tarea **con** su proyecto y su responsable en una sola consulta (`include`).
+
+## El flujo estrella: crear una tarea, de punta a punta
+
+Esta es la historia que tenés que poder contar entera. Seguila por las capas:
+
+<ol class="pasos">
+<li>**Front — formulario.** En `TareaForm.jsx`, React Hook Form valida que los campos no estén vacíos. El select de responsable muestra **solo** los integrantes del proyecto elegido (`watch('proyectoId')`).</li>
+<li>**Front — service Axios.** Al enviar, `tareas.service.js → crearTarea()` hace `api.post('/tareas', tarea)`. El interceptor de `client.js` le agrega `Authorization: Bearer <token>` automáticamente.</li>
+<li>**Back — route.** `POST /api/tareas` pasa por `authenticate` → `requireRole('lider','admin')` → `crearTareaRules` → `validate` → `controller.crear`.</li>
+<li>**Back — controller.** `tarea.controller.js → crear()` llama `tareaService.crear(req.body, req.user)` dentro de un `try/catch` que hace `next(err)` si algo falla.</li>
+<li>**Back — service (el corazón).** `tarea.service.js → crear()` valida: proyecto existe, no está finalizado/pausado, prioridad y estado válidos, **responsable integra el proyecto**. Si algo no cumple, lanza `AppError(400, ...)`.</li>
+<li>**Back — persistencia + auditoría.** En una **transacción**, crea la tarea **y** registra el historial (`accion: 'creacion'`). O se guardan los dos, o ninguno.</li>
+<li>**Vuelta.** El service devuelve la tarea serializada (con el flag `vencida`), el controller responde `201`, y el front muestra el éxito (o el error del backend si falló una regla).</li>
+</ol>
+
+<Callout type="warn" title="La pregunta clásica: ¿por qué la validación va en el service y no en el formulario?">
+Porque el formulario **se saltea** con Postman o `curl`. La validación del front (React Hook Form) es solo para la experiencia del usuario. La **fuente de verdad** es el service del backend: ahí se valida contra la base (¿el responsable realmente integra el proyecto?), algo que el front no puede garantizar.
+</Callout>
+
+## Seguí el recorrido
+
+<div class="idx" style="margin-top:8px">
+  <a class="idx__row" href="/tpi/backend/" data-accent="express">
+    <span class="idx__no"><Icon name="server" size={18} /></span>
+    <span class="idx__body">
+      <span class="idx__t">Backend a fondo</span>
+      <span class="idx__d">Capas, reglas del service, JWT y permisos, errores, transiciones, historial y testing.</span>
+    </span>
+    <span class="idx__go"><Icon name="arrowRight" size={18} /></span>
+  </a>
+  <a class="idx__row" href="/tpi/frontend/" data-accent="react">
+    <span class="idx__no"><Icon name="atom" size={18} /></span>
+    <span class="idx__body">
+      <span class="idx__t">Frontend a fondo</span>
+      <span class="idx__d">AuthContext y sesión, rutas protegidas, capa Axios, formularios y el tablero Kanban.</span>
+    </span>
+    <span class="idx__go"><Icon name="arrowRight" size={18} /></span>
+  </a>
+  <a class="idx__row" href="/tpi/defensa/" data-accent="security">
+    <span class="idx__no"><Icon name="parcial" size={18} /></span>
+    <span class="idx__body">
+      <span class="idx__t">Defensa: las 2 preguntas a desarrollar</span>
+      <span class="idx__d">Simulacro con respuestas modelo y el banco de preguntas frecuentes del parcial.</span>
+    </span>
+    <span class="idx__go"><Icon name="arrowRight" size={18} /></span>
+  </a>
+</div>
+
+</div>
+</article>
+</BaseLayout>
