@@ -12,8 +12,9 @@ import Icon from '../../components/Icon.astro';
   </div>
   <p class="uhero__eyebrow">TP Integrador · Las 2 preguntas a desarrollar</p>
   <h1 class="uhero__title">Defensa del parcial</h1>
-  <p class="uhero__sub">Cómo encarar una pregunta a desarrollo, dos simulacros con respuesta modelo, y el banco de preguntas frecuentes con dónde mirar en el código.</p>
+  <p class="uhero__sub">Cómo encarar una pregunta a desarrollo, dos simulacros con respuesta modelo, las <strong>preguntas reales</strong> de un parcial ya tomado, y el banco de preguntas frecuentes con dónde mirar en el código.</p>
   <div class="uhero__meta chips">
+    <span class="chip">Preguntas reales</span>
     <span class="chip">Simulacros</span>
     <span class="chip">Respuestas modelo</span>
     <span class="chip">Trampas</span>
@@ -71,6 +72,121 @@ El paso 4 es el que sube la nota: muestra que entendés, no que memorizaste.
 
 <Callout type="tip" title="Si te toca una tercera pregunta o una repregunta">
 Las más probables: **manejo de errores** ("AppError + middleware con firma `(err, req, res, next)`, último en `app.js`"), **transiciones de estado** ("tabla `TRANSICIONES` + `puedeTransicionar`, una inválida da 400"), **historial** ("en transacción junto al cambio") o **testing** ("Jest + Supertest contra SQLite en memoria, semilla por `beforeEach`").
+</Callout>
+
+## Las preguntas que salieron de verdad
+
+<Callout type="parcial" title="Qué tienen en común">
+Son preguntas **reales** de un parcial ya tomado. Todas piden lo mismo —**el flujo del código back + front**— pero cada una te lo pide **orientado a un foco distinto**: protección de rutas, autenticación, roles, errores u organización. A un compañero le tocó además **cómo se protegen los tokens y las credenciales** y la **diferencia entre 401 y 403**. Respondé siempre con los **4 pasos** y **nombrá los archivos**: eso separa un aprobado de un "lo entendí".
+</Callout>
+
+<h3>Las 5 consignas, cada una con su foco</h3>
+
+<p class="muted">Predecí la respuesta y después abrila. Cada una termina en <strong>por qué</strong> y en <strong>cómo te das cuenta si está mal</strong> (el paso que sube la nota).</p>
+
+<details class="qa">
+<summary>1 — ¿Cómo desarrollaron la protección de rutas en el frontend para que solo usuarios autenticados accedan a ciertas páginas?</summary>
+<div class="qa__a">
+<ul>
+<li>Un componente <code>ProtectedRoute.jsx</code> lee el usuario del <code>AuthContext</code>. Si no hay usuario (no hay token), devuelve <code>&lt;Navigate to="/login" replace /&gt;</code>; si lo hay, renderiza <code>&lt;Outlet /&gt;</code>.</li>
+<li>En <code>App.jsx</code> las páginas privadas se envuelven con <code>&lt;Route element=&#123;&lt;ProtectedRoute /&gt;&#125;&gt;</code>. La sesión la sostiene <code>AuthContext</code>, que arranca leyendo <code>localStorage</code> (lazy initial state): por eso una recarga no te expulsa.</li>
+<li><strong>Por qué</strong>: esto es <strong>UX de navegación, no seguridad</strong>. Cualquiera le puede pegar a la API con Postman sin pasar por el front. El candado real está en el backend, que verifica JWT y rol en cada request.</li>
+<li><strong>Si está mal</strong>: tipeás una URL privada sin token y ves la página (aunque sea un parpadeo) → falta el guard o se chequea tarde.</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>2 — ¿Cómo desarrollaron la autenticación en el backend y cómo se comunica con el frontend para mantener la sesión?</summary>
+<div class="qa__a">
+<ul>
+<li><strong>Back</strong>: <code>POST /api/auth/login</code> → <code>auth.service.js</code> compara la contraseña con <code>bcrypt.compare</code> (se guardan <strong>hasheadas</strong>, nunca en claro). Si coincide, <code>utils/jwt.js → signToken</code> firma un JWT con payload mínimo <code>&#123; id, rol, nombre &#125;</code> y vencimiento.</li>
+<li><strong>Ida y vuelta</strong>: el back responde <code>&#123; token, usuario &#125;</code>; el front lo guarda en <code>localStorage</code> desde <code>AuthContext</code>. Un <strong>interceptor de request</strong> en <code>client.js</code> agrega <code>Authorization: Bearer &lt;token&gt;</code> a cada llamada.</li>
+<li><strong>Mantener la sesión</strong>: al abrir la app, <code>AuthContext</code> rehidrata el estado desde <code>localStorage</code>; un interceptor de <strong>response</strong> detecta <code>401</code>, limpia la sesión y manda a login (token vencido/inválido).</li>
+<li><strong>Por qué</strong>: es <strong>stateless</strong>: el server no guarda sesión, el token viaja en cada request y se verifica con <code>verifyToken</code>.</li>
+<li><strong>Si está mal</strong>: token sin expiración, que viaje en la URL, o que el back acepte requests sin verificar la firma.</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>3 — ¿Cómo desarrollaron la autorización por roles en el backend para controlar qué puede hacer cada usuario?</summary>
+<div class="qa__a">
+<ul>
+<li><strong>Nivel 1 — rol</strong>: el middleware <code>requireRole(...roles)</code> en <code>authorize.middleware.js</code> corre <strong>después</strong> de <code>authenticate</code>, mira <code>req.user.rol</code> y si no está permitido corta con <strong>403</strong>. Ej.: <code>POST /api/tareas</code> lleva <code>requireRole('lider','admin')</code>.</li>
+<li><strong>Nivel 2 — propiedad</strong>: en el <code>service</code>, un colaborador solo opera <strong>sus</strong> tareas (<code>tarea.responsableId === actor.id</code>). Eso depende del dato concreto; un middleware genérico no puede saberlo.</li>
+<li><strong>Por qué separarlo</strong>: el rol lo sabe la ruta (genérico); la propiedad la sabe el service tras leer la base (específico del recurso).</li>
+<li><strong>Si está mal</strong>: un colaborador que logra editar una tarea ajena → falta el chequeo de propiedad. Lo fija el test <code>tareas.test.js</code>.</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>4 — ¿Cómo desarrollaron el manejo de errores en el backend para que sea centralizado y no se repita en cada controller?</summary>
+<div class="qa__a">
+<ul>
+<li>Una clase <code>AppError(status, mensaje)</code> que los <strong>services</strong> lanzan cuando se rompe una regla.</li>
+<li>Los <strong>controllers</strong> son finos: <code>try/catch</code> + <code>next(err)</code>. No arman la respuesta de error, la <strong>derivan</strong>.</li>
+<li>Un único <strong>middleware de errores</strong> con la firma de cuatro parámetros <code>(err, req, res, next)</code>, registrado <strong>último</strong> en <code>app.js</code>. Traduce todo a <code>res.status(err.status || 500).json(&#123; error: err.message &#125;)</code>; lo no controlado cae en un 500 genérico sin filtrar el stack.</li>
+<li><strong>Por qué</strong>: esa firma de 4 args es lo que Express reconoce como manejador de errores, y al ir último captura el <code>next(err)</code> de cualquier ruta. Un solo lugar = formato consistente y cero repetición.</li>
+<li><strong>Si está mal</strong>: endpoints que devuelven errores con formatos distintos, o una excepción que voltea el server en vez de responder JSON.</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>5 — ¿Cómo organizaron el backend y por qué separaron en routes, controllers y services?</summary>
+<div class="qa__a">
+<ul>
+<li>Capas con una sola responsabilidad: la <strong>route</strong> arma el <code>Router</code> y encadena middlewares; el <strong>controller</strong> lee <code>req</code> / arma <code>res</code> y delega; el <strong>service</strong> concentra <strong>todas</strong> las reglas de negocio; los <strong>models</strong> (Sequelize) hablan con SQLite.</li>
+<li><strong>Por qué</strong>: así el service se testea sin levantar HTTP, la lógica se reutiliza y el controller no se llena de reglas. La regla central (el responsable integra el proyecto) vive en el service porque el formulario <strong>se saltea</strong> con Postman: la fuente de verdad es el back.</li>
+<li><strong>La frase que cierra</strong>: route = recepcionista, middlewares = seguridad, controller = mozo, service = cocina, models = despensa. El cliente nunca entra a la cocina.</li>
+<li><strong>Si está mal</strong>: reglas de negocio metidas en el controller o en la ruta ("controller gordo") → mala separación.</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>Bonus (le tocó a un compañero) — ¿Cómo se protegen los tokens y las credenciales, y cuál es la diferencia entre 401 y 403?</summary>
+<div class="qa__a">
+<ul>
+<li><strong>Credenciales</strong>: las contraseñas nunca viajan ni se guardan en claro → <strong>bcrypt</strong> (hash + salt). El JWT lleva payload <strong>mínimo</strong> (<code>&#123; id, rol, nombre &#125;</code>), jamás la contraseña ni el hash; al serializar el usuario, <code>sanitizar()</code> le quita el hash.</li>
+<li><strong>Token</strong>: firmado con un <strong>secreto en variable de entorno</strong> (no hardcodeado ni en el repo) y con <strong>expiración</strong>. Viaja en el header <code>Authorization</code>, no en la URL. CORS limita los orígenes y en producción HTTPS evita que lo intercepten.</li>
+<li><strong>Dónde guardarlo (la discusión clásica)</strong>: <code>localStorage</code> es cómodo pero lo lee cualquier JS → vulnerable a <strong>XSS</strong>. Más seguro: cookie <code>HttpOnly</code>. Conviene nombrar el trade-off.</li>
+<li><strong>401 vs 403</strong>: <strong>401</strong> = "no sé quién sos" (falta token / inválido / vencido) → a login. <strong>403</strong> = "sé quién sos, pero no podés" (rol o propiedad insuficiente). Caso típico: colaborador con token válido que intenta <code>POST /tareas</code> → pasa <code>authenticate</code>, lo frena <code>requireRole</code> con 403.</li>
+<li><strong>Si está mal</strong>: secreto en el código, token sin vencimiento, o devolver 403 cuando en realidad falta el token (debería ser 401).</li>
+</ul>
+</div>
+</details>
+
+<h3>Dos consignas abiertas: el ejemplo lo elegís vos</h3>
+
+En vez de una pregunta puntual, te dan un molde y vos elegís qué parte del TP mostrar. **Elegí siempre la que más controlás** y respondé en el mismo orden en que está pedida.
+
+> *"Elegí una operación backend real de tu TP. Explicá cómo se conecta con el flujo de usuario, qué regla de negocio o validación sostiene y cómo detectarías un comportamiento incorrecto."*
+
+<Callout type="info" title="Molde + ejemplo: crear una tarea">
+**La operación.** `POST /api/tareas → tarea.service.js → crear()`.
+
+**Cómo se conecta con el usuario.** El líder completa `TareaForm.jsx`; Axios hace `post` con `Bearer <token>`; la route encadena `authenticate → requireRole → validate`; el controller delega y el service decide.
+
+**Qué regla sostiene.** El **responsable debe integrar el proyecto** y el proyecto no puede estar finalizado/pausado; si no se cumple, lanza `AppError(400)`. Si todo pasa, persiste la tarea **y** el historial en una **transacción**.
+
+**Cómo detectaría un comportamiento incorrecto.** Desde Postman asigno una tarea a alguien que **no** integra el proyecto: la respuesta tiene que ser **400**. Si la crea igual, la validación falta o está en el lugar equivocado (p. ej., solo en el front). El test `tareas.test.js` lo deja fijado.
+</Callout>
+
+> *"Elegí un formulario real de tu TP. Describí campos principales, reglas de validación, mensajes de error esperados, acción de submit y qué ocurre después de guardar correctamente."*
+
+<Callout type="info" title="Molde + ejemplo: formulario de crear tarea (React Hook Form)">
+**Campos principales.** Título, descripción, proyecto (select), **responsable** (select dependiente), prioridad, estado y fecha límite.
+
+**Reglas de validación.** `required` en título, proyecto y responsable; el select de responsable se arma con `watch('proyectoId')`, así muestra **solo los integrantes** del proyecto elegido. El back **revalida** todo (fuente de verdad).
+
+**Mensajes de error esperados.** "El título es obligatorio", "Elegí un proyecto", etc., debajo de cada campo, leídos de `formState.errors`.
+
+**Acción de submit.** `handleSubmit(onSubmit)` (frena el reload por defecto del form). El botón va `disabled={!isValid || isSubmitting}`: evita enviar inválido y el doble envío.
+
+**Después de guardar bien.** El back responde **201**, se muestra el éxito y se navega al detalle/listado con `useNavigate`, refrescando la lista. Si una regla del back falla, se muestra su mensaje con `getErrorMessage()`.
 </Callout>
 
 ## Banco de preguntas frecuentes
