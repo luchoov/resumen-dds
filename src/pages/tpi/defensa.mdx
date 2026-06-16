@@ -12,7 +12,7 @@ import Icon from '../../components/Icon.astro';
   </div>
   <p class="uhero__eyebrow">TP Integrador · Las 2 preguntas a desarrollar</p>
   <h1 class="uhero__title">Defensa del parcial</h1>
-  <p class="uhero__sub">Cómo encarar una pregunta a desarrollo, dos simulacros con respuesta modelo, las <strong>preguntas reales</strong> de un parcial ya tomado, y el banco de preguntas frecuentes con dónde mirar en el código.</p>
+  <p class="uhero__sub">Cómo encarar una pregunta a desarrollo, dos simulacros con respuesta modelo, las <strong>preguntas reales</strong> de parciales ya tomados, y el banco de preguntas frecuentes con dónde mirar en el código.</p>
   <div class="uhero__meta chips">
     <span class="chip">Preguntas reales</span>
     <span class="chip">Simulacros</span>
@@ -188,6 +188,64 @@ En vez de una pregunta puntual, te dan un molde y vos elegís qué parte del TP 
 
 **Después de guardar bien.** El back responde **201**, se muestra el éxito y se navega al detalle/listado con `useNavigate`, refrescando la lista. Si una regla del back falla, se muestra su mensaje con `getErrorMessage()`.
 </Callout>
+
+<h3>Otra mesa: mostrar datos, el flujo de ingreso y Axios</h3>
+
+<p class="muted">A otro compañero le tocó el mismo molde, pero apuntando a <strong>mostrar/leer</strong> información, al <strong>flujo de ingreso</strong> punta a punta y a <strong>Axios</strong>. También aparecieron como temas <code>middleware</code>, <code>next()</code> y el <code>errorhandler</code>. La consigna "usuario logueado y verificar permisos desde el back" la respondés con las consignas <strong>2</strong> y <strong>3</strong> de arriba.</p>
+
+<details class="qa">
+<summary>Explicá con tus palabras una parte del TP donde mostrás información existente (flujo de lectura)</summary>
+<div class="qa__a">
+<ul>
+<li>La pantalla de listado (p. ej. <code>TareasPage.jsx</code>) carga los datos al montar: <code>useEffect(() =&gt; &#123; cargar() &#125;, [])</code>. El array <code>[]</code> hace que corra <strong>una sola vez</strong>.</li>
+<li><code>cargar()</code> llama a <code>tareas.service.js → listar()</code>, que hace <code>api.get('/tareas')</code>. El interceptor agrega el <code>Bearer</code>; los datos llegan en <code>response.data</code>.</li>
+<li>Se guardan con <code>setTareas(data)</code>: ese <code>setState</code> dispara el re-render y la lista se pinta con <code>.map</code> usando una <code>key</code> estable (el id).</li>
+<li>Tres estados de UI: <strong>loading</strong> mientras espera, <strong>error</strong> si falla (<code>getErrorMessage()</code>) y <strong>vacío</strong> si no hay datos.</li>
+<li><strong>Por qué el <code>[]</code></strong>: sin el array de dependencias, el <code>setState</code> volvería a disparar el efecto → <strong>loop infinito</strong>.</li>
+<li><strong>Si está mal</strong>: la lista no aparece (faltó el <code>setState</code> o el <code>await</code>), o recarga sin parar (sin <code>[]</code>).</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>Contá el flujo de un usuario cuando ingresa información, de punta a punta (flujo de escritura)</summary>
+<div class="qa__a">
+<ul>
+<li>El usuario completa un formulario (<code>TareaForm.jsx</code>) y React Hook Form valida en pantalla (experiencia).</li>
+<li>Al enviar: el <code>service</code> Axios hace <code>post</code> con <code>Bearer &lt;token&gt;</code> → la route encadena <code>authenticate → requireRole → validate</code> → el <strong>controller</strong> (fino, <code>next(err)</code> si falla) → el <strong>service</strong>, que aplica <strong>todas</strong> las reglas → models/SQLite en una <strong>transacción</strong>.</li>
+<li>Vuelve <code>201</code> + el dato creado; el front muestra el éxito y navega/refresca. Si una regla falla, el service lanza <code>AppError</code> → middleware de errores → el front muestra el mensaje.</li>
+<li><strong>Frase clave</strong>: la fuente de verdad es el <strong>back</strong>; el formulario se saltea con Postman, así que la validación que importa es la del service.</li>
+<li>(El recorrido completo, capa por capa, está en el <strong>Simulacro 1</strong> de arriba.)</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>¿Qué es Axios en tu TP y cómo lo usaron?</summary>
+<div class="qa__a">
+<ul>
+<li>Un cliente HTTP basado en promesas. Hay <strong>una instancia</strong> en <code>client.js</code> con <code>baseURL</code> y headers; cada recurso tiene su service (<code>tareas.service.js</code>, etc.) que la reutiliza.</li>
+<li><strong>Interceptor de request</strong>: agrega <code>Authorization: Bearer &lt;token&gt;</code> leyendo <code>localStorage</code>, así no lo pasás a mano en cada llamada.</li>
+<li><strong>Interceptor de response</strong>: ante un <code>401</code> limpia la sesión y manda a login; el resto de los errores se propagan a cada pantalla.</li>
+<li>Los datos llegan <strong>ya parseados</strong> en <code>response.data</code> (con <code>fetch</code> tendrías que hacer <code>.json()</code> a mano).</li>
+<li><strong>Por qué una instancia + services</strong>: centraliza la baseURL y el token, y no repetís configuración en cada componente.</li>
+<li><strong>Si está mal</strong>: el token no viaja (interceptor mal armado) y todo da 401; o leés <code>response</code> en vez de <code>response.data</code>.</li>
+</ul>
+</div>
+</details>
+
+<details class="qa">
+<summary>Middleware, <code>next()</code> y errorhandler: ¿cómo se encadenan y cómo llega un error al manejador?</summary>
+<div class="qa__a">
+<ul>
+<li>Express ejecuta los middlewares <strong>en orden</strong>. Cada uno recibe <code>(req, res, next)</code> y debe llamar <code>next()</code> para pasar al siguiente, o cortar respondiendo.</li>
+<li>En una ruta protegida la cadena es <code>authenticate → requireRole → validators → validate → controller</code>. Si <code>authenticate</code> no llama <code>next()</code>, todo se frena ahí (es el candado).</li>
+<li><code>next(err)</code> <strong>con un argumento</strong> saltea los middlewares normales y va directo al <strong>manejador de errores</strong>: el de firma de cuatro parámetros <code>(err, req, res, next)</code>, registrado <strong>último</strong> en <code>app.js</code>.</li>
+<li>Por eso los controllers hacen <code>try/catch &#123; next(err) &#125;</code>: no arman el error, lo derivan a un solo lugar (cero repetición).</li>
+<li><strong>Si está mal</strong>: olvidar <code>next()</code> deja la request colgada (timeout); poner el errorhandler <strong>antes</strong> de las rutas hace que no capture nada.</li>
+</ul>
+</div>
+</details>
 
 ## Banco de preguntas frecuentes
 
