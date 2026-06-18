@@ -124,6 +124,70 @@ El backend separa responsabilidades en capas. Una petición las atraviesa **siem
 La **route** es la recepcionista (te deriva). Los **middlewares** son seguridad (¿tenés entrada? ¿podés pasar a esta sala?). El **controller** es el mozo (toma el pedido, lo lleva). El **service** es la cocina (donde **realmente** se decide y se cocina). Los **models** son la despensa. El cliente nunca entra a la cocina.
 </Callout>
 
+## El mapa del repo: qué hay en cada carpeta
+
+El repo son **dos proyectos independientes** que se levantan por separado (o juntos con Docker Compose). En la **raíz** viven `docker-compose.local.yml` y `docs/` (`DECISIONES.md` y `GUIA_DEFENSA.md`). Dentro, cada subcarpeta tiene **un único trabajo** — esta es la otra imagen mental clave, la que aterriza las capas en archivos concretos:
+
+<Figura caption="El mapa del repo: backend/ y frontend/ son independientes; cada subcarpeta tiene una responsabilidad única.">
+<svg viewBox="0 0 720 584" width="720" height="584" xmlns="http://www.w3.org/2000/svg" font-family="Inter Variable, sans-serif">
+  <rect x="16" y="16" width="688" height="312" rx="14" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="36" y="44" font-size="13" fill="hsl(var(--c-express))" font-weight="700">backend/ · Node + Express + Sequelize</text>
+  <text x="36" y="63" font-size="11" fill="var(--text-dim)">src/ — <tspan font-family="JetBrains Mono Variable, monospace">app.js</tspan> arma la app · <tspan font-family="JetBrains Mono Variable, monospace">server.js</tspan> la levanta · base SQLite persistente</text>
+  <line x1="44" y1="80" x2="44" y2="312" stroke="var(--border)" stroke-width="1.5"/>
+
+  <g font-size="11.5" font-family="JetBrains Mono Variable, monospace" font-weight="700">
+    <text x="56" y="96"  fill="hsl(var(--c-express))">routes/</text>
+    <text x="56" y="120" fill="hsl(var(--c-security))">middlewares/</text>
+    <text x="56" y="144" fill="hsl(var(--c-express))">controllers/</text>
+    <text x="56" y="168" fill="hsl(var(--c-express))">services/ ★</text>
+    <text x="56" y="192" fill="hsl(var(--c-express))">validators/</text>
+    <text x="56" y="216" fill="hsl(var(--c-data))">models/</text>
+    <text x="56" y="240" fill="hsl(var(--c-data))">config/</text>
+    <text x="56" y="264" fill="hsl(var(--c-express))">utils/</text>
+    <text x="56" y="288" fill="hsl(var(--c-router))">seed/</text>
+    <text x="56" y="312" fill="hsl(var(--c-testing))">tests/</text>
+  </g>
+  <g font-size="11" fill="var(--text-soft)">
+    <text x="200" y="96">un <tspan font-family="JetBrains Mono Variable, monospace">express.Router()</tspan> por recurso; engancha los middlewares de la ruta</text>
+    <text x="200" y="120">authenticate · authorize(rol) · validate · manejador de errores central</text>
+    <text x="200" y="144">orquestación fina: leen <tspan font-family="JetBrains Mono Variable, monospace">req</tspan>, llaman al service y arman la respuesta</text>
+    <text x="200" y="168" fill="var(--text)" font-weight="700">★ TODAS las reglas de negocio — la fuente de verdad del sistema</text>
+    <text x="200" y="192">forma de la entrada con express-validator (campos, tipos, requeridos)</text>
+    <text x="200" y="216">Sequelize: Usuario · Proyecto · Tarea · Historial + sus asociaciones</text>
+    <text x="200" y="240">conexión a la base SQLite</text>
+    <text x="200" y="264">AppError, helpers de JWT y constantes del dominio (estados, roles…)</text>
+    <text x="200" y="288">datos de prueba deterministas (6 usuarios, 4 proyectos, 16 tareas)</text>
+    <text x="200" y="312">Jest + Supertest sobre SQLite en memoria (carpeta hermana de src/)</text>
+  </g>
+
+  <rect x="16" y="344" width="688" height="224" rx="14" fill="var(--surface-2)" stroke="var(--border)"/>
+  <text x="36" y="372" font-size="13" fill="hsl(var(--c-react))" font-weight="700">frontend/ · React + Vite</text>
+  <text x="36" y="391" font-size="11" fill="var(--text-dim)">src/ — <tspan font-family="JetBrains Mono Variable, monospace">main.jsx</tspan> monta la app · <tspan font-family="JetBrains Mono Variable, monospace">App.jsx</tspan> define las rutas (incluida la comodín <tspan font-family="JetBrains Mono Variable, monospace">*</tspan>)</text>
+  <line x1="44" y1="408" x2="44" y2="552" stroke="var(--border)" stroke-width="1.5"/>
+
+  <g font-size="11.5" font-family="JetBrains Mono Variable, monospace" font-weight="700">
+    <text x="56" y="424" fill="hsl(var(--c-react))">pages/</text>
+    <text x="56" y="448" fill="hsl(var(--c-react))">components/</text>
+    <text x="56" y="472" fill="hsl(var(--c-data))">api/</text>
+    <text x="56" y="496" fill="hsl(var(--c-router))">context/</text>
+    <text x="56" y="520" fill="hsl(var(--c-security))">routes/</text>
+    <text x="56" y="544" fill="hsl(var(--c-react))">styles.css</text>
+  </g>
+  <g font-size="11" fill="var(--text-soft)">
+    <text x="200" y="424">una por pantalla (login, registro, listado, detalle, alta, resumen, 404)</text>
+    <text x="200" y="448">piezas de UI: tablero Kanban, tabla, tarjeta, formularios, filtros, historial</text>
+    <text x="200" y="472">capa Axios, un service por recurso + interceptor que agrega el Bearer token</text>
+    <text x="200" y="496">AuthContext (sesión + persistencia) y ToastContext (avisos)</text>
+    <text x="200" y="520">ProtectedRoute: guarda rutas por sesión y rol (UX; la verdad es el backend)</text>
+    <text x="200" y="544">sistema de diseño propio: tokens CSS, tema oscuro, sin librerías de UI</text>
+  </g>
+</svg>
+</Figura>
+
+<Callout type="tip" title="Cómo ubicar una respuesta en 5 segundos">
+Si la pregunta es de **reglas o validaciones de negocio** → `services/`. Si es de **quién puede hacer qué** → `middlewares/` (`authenticate` / `authorize`). Si es de **forma de los datos** → `validators/` (formato) o `models/` (entidades). Si es de **pantallas o estado de la UI** → `pages/` y `context/`. Backend y frontend **espejan** sus capas: ambos tienen `routes/` y una capa de servicios (`services/` ↔ `api/`).
+</Callout>
+
 ## El modelo de datos (4 entidades)
 
 <Figura caption="Las 4 entidades y sus relaciones. Una tarea cruza proyecto y usuario; el historial audita todo.">
