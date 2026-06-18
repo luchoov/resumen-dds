@@ -1208,10 +1208,9 @@ a {
 .qa > summary {
   cursor: pointer;
   list-style: none;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.7rem;
-  padding: 0.8rem 1rem;
+  display: block;
+  position: relative;
+  padding: 0.8rem 2.4rem 0.8rem 2.7rem;
   font-weight: 600;
   font-size: 0.95rem;
   line-height: 1.4;
@@ -1222,12 +1221,13 @@ a {
 }
 .qa > summary::before {
   content: 'P';
-  flex: none;
+  position: absolute;
+  left: 1rem;
+  top: 0.78rem;
   width: 22px;
   height: 22px;
   display: grid;
   place-items: center;
-  margin-top: 0.05rem;
   font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 700;
@@ -1238,8 +1238,9 @@ a {
 }
 .qa > summary::after {
   content: '+';
-  margin-left: auto;
-  padding-left: 0.6rem;
+  position: absolute;
+  right: 1rem;
+  top: 0.85rem;
   font-family: var(--font-mono);
   font-size: 1.15rem;
   line-height: 1;
